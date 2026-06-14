@@ -1,0 +1,240 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  OPERATOR
+}
+
+enum OperatorType {
+  CASH
+  CREDIT
+}
+
+enum VoucherType {
+  ORDER
+  RECEIPT
+}
+
+enum PaymentMode {
+  CASH
+  UPI
+}
+
+enum LogAction {
+  LOGIN
+  LOGOUT
+  BILL_CREATION
+  RECEIPT_CREATION
+  PRODUCT_CREATION
+  PRODUCT_UPDATE
+  BRAND_CREATION
+  CATEGORY_CREATION
+  STORE_CREATION
+  USER_CREATION
+  PAYMENT_METHOD_CREATION
+  PAYMENT_METHOD_UPDATE
+}
+
+model User {
+  id            String        @id @default(cuid())
+  username      String        @unique
+  passwordHash  String
+  role          Role          @default(OPERATOR)
+  operatorType  OperatorType?
+  isActive      Boolean       @default(true)
+  refreshToken  String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  orders        Order[]
+  receipts      Receipt[]
+  userLogs      UserLog[]
+
+  @@index([username])
+  @@index([role])
+  @@index([operatorType])
+}
+
+model Store {
+  id              String           @id @default(cuid())
+  name            String
+  address         String
+  city            String
+  pincode         String
+  mobile          String
+  email           String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  orders          Order[]
+  receipts        Receipt[]
+  ledgerEntries   LedgerEntry[]
+  openingBalance  OpeningBalance?
+
+  @@index([name])
+}
+
+model Brand {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  imageUrl    String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  categories  Category[]
+  products    Product[]
+
+  @@index([name])
+}
+
+model Category {
+  id          String      @id @default(cuid())
+  name        String
+  imageUrl    String?
+  brandId     String
+  brand       Brand       @relation(fields: [brandId], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  products    Product[]
+
+  @@unique([name, brandId])
+  @@index([brandId])
+  @@index([name])
+}
+
+model Product {
+  id                String      @id @default(cuid())
+  modelName         String
+  imageUrl          String?
+  mrp               Decimal     @db.Decimal(12, 2)
+  nlc               Decimal     @db.Decimal(12, 2)
+  availableQty      Int         @default(0)
+  brandId           String
+  brand             Brand       @relation(fields: [brandId], references: [id])
+  categoryId        String
+  category          Category    @relation(fields: [categoryId], references: [id])
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  orderItems        OrderItem[]
+
+  @@index([brandId])
+  @@index([categoryId])
+  @@index([modelName])
+  @@index([nlc])
+  @@index([availableQty])
+}
+
+model Order {
+  id            String        @id @default(cuid())
+  billNumber    String        @unique
+  customerName  String?
+  storeId       String
+  store         Store         @relation(fields: [storeId], references: [id])
+  userId        String
+  user          User          @relation(fields: [userId], references: [id])
+  totalAmount   Decimal       @db.Decimal(12, 2)
+  createdAt     DateTime      @default(now())
+  orderItems    OrderItem[]
+  ledgerEntry   LedgerEntry?
+
+  @@index([storeId])
+  @@index([userId])
+  @@index([billNumber])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id          String    @id @default(cuid())
+  orderId     String
+  order       Order     @relation(fields: [orderId], references: [id])
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  quantity    Int
+  unitPrice   Decimal   @db.Decimal(12, 2)
+  lineTotal   Decimal   @db.Decimal(12, 2)
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model Receipt {
+  id              String          @id @default(cuid())
+  receiptNumber   String          @unique
+  storeId         String
+  store           Store           @relation(fields: [storeId], references: [id])
+  userId          String
+  user            User            @relation(fields: [userId], references: [id])
+  paymentMode     PaymentMode
+  paymentMethodId String?
+  paymentMethod   PaymentMethod?  @relation(fields: [paymentMethodId], references: [id])
+  amount          Decimal         @db.Decimal(12, 2)
+  date            DateTime
+  customerName    String?
+  createdAt       DateTime        @default(now())
+  ledgerEntry     LedgerEntry?
+
+  @@index([storeId])
+  @@index([userId])
+  @@index([receiptNumber])
+  @@index([date])
+  @@index([paymentMethodId])
+}
+
+model LedgerEntry {
+  id              String      @id @default(cuid())
+  storeId         String
+  store           Store       @relation(fields: [storeId], references: [id])
+  voucherType     VoucherType
+  amount          Decimal     @db.Decimal(12, 2)
+  customerName    String?
+  orderId         String?     @unique
+  order           Order?      @relation(fields: [orderId], references: [id])
+  receiptId       String?     @unique
+  receipt         Receipt?    @relation(fields: [receiptId], references: [id])
+  date            DateTime
+  createdAt       DateTime    @default(now())
+
+  @@index([storeId])
+  @@index([date])
+  @@index([customerName])
+  @@index([voucherType])
+}
+
+model OpeningBalance {
+  id        String    @id @default(cuid())
+  storeId   String    @unique
+  store     Store     @relation(fields: [storeId], references: [id])
+  amount    Decimal   @db.Decimal(12, 2)
+  updatedAt DateTime  @updatedAt
+
+  @@index([storeId])
+}
+
+model UserLog {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  action    LogAction
+  meta      Json?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model PaymentMethod {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  receipts  Receipt[]
+
+  @@index([name])
+  @@index([isActive])
+}

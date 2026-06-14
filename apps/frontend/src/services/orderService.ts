@@ -1,0 +1,12 @@
+import { api, downloadBlob } from './api';
+
+export const orderService = {
+  list: (params?: Record<string, unknown>) => api.get('/orders', { params }).then((r) => r.data),
+  create: (data: { storeId: string; items: Array<{ productId: string; quantity: number }> }) =>
+    api.post('/orders', data).then((r) => r.data),
+  getById: (id: string) => api.get(`/orders/${id}`).then((r) => r.data),
+  downloadPdf: async (orderId: string, billNumber: string) => {
+    const response = await api.get(`/orders/${orderId}/pdf`, { responseType: 'blob' });
+    downloadBlob(response.data, `bill-${billNumber}.pdf`);
+  },
+};

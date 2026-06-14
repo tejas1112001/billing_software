@@ -1,0 +1,104 @@
+@import "tw-animate-css";
+@import "@fontsource-variable/geist";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Deep indigo theme */
+    --background: 246 100% 98%;        /* #f5f4ff - page bg */
+    --foreground: 243 55% 15%;         /* deep indigo text */
+    --card: 0 0% 100%;                 /* white cards */
+    --card-foreground: 243 55% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 243 55% 15%;
+    --primary: 245 83% 59%;            /* #4f46e5 - active nav / primary accent */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 246 75% 96%;          /* light indigo tint */
+    --secondary-foreground: 243 55% 20%;
+    --muted: 246 75% 96%;
+    --muted-foreground: 243 30% 50%;
+    --accent: 239 84% 67%;             /* #6366f1 - accent */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 246 75% 93%;             /* #e5e3fb - card/header borders */
+    --input: 246 75% 93%;
+    --ring: 245 83% 59%;
+    --radius: 0.625rem;
+    --sidebar-bg: 243 55% 20%;         /* #1e1b4b - sidebar background */
+    --chart-1: 245 83% 59%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Geist Variable', sans-serif;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+  }
+  html {
+    font-family: 'Geist Variable', sans-serif;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+  }
+  #root {
+    width: 100%;
+    height: 100%;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+@layer utilities {
+  @media (max-width: 640px) {
+    .mobile-compact {
+      @apply p-2 text-xs;
+    }
+  }
+}
