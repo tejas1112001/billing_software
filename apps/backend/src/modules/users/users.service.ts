@@ -124,3 +124,35 @@ export async function resetPassword(adminId: string, userId: string, newPassword
   await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
   return { success: true };
 }
+
+export async function deleteUser(adminId: string, userId: string) {
+  const existing = await prisma.user.findUnique({ where: { id: userId } });
+  if (!existing) throw new AppError(404, 'User not found');
+
+  // Prevent admin from deleting themselves
+  if (userId === adminId) {
+    throw new AppError(400, 'Cannot delete your own account');
+  }
+
+  // Check if user has created any orders
+  const orderCount = await prisma.order.count({
+    where: { userId },
+  });
+
+  if (orderCount > 0) {
+    throw new AppError(400, 'Cannot delete user who has created orders. Consider deactivating instead.');
+  }
+
+  // Check if user has created any receipts
+  const receiptCount = await prisma.receipt.count({
+    where: { userId },
+  });
+
+  if (receiptCount > 0) {
+    throw new AppError(400, 'Cannot delete user who has created receipts. Consider deactivating instead.');
+  }
+
+  await prisma.user.delete({ where: { id: userId } });
+  await createLog(adminId, 'USER_CREATION', { username: existing.username, action: 'deleted' });
+  return { success: true };
+}

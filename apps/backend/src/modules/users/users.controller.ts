@@ -62,3 +62,9 @@ export async function resetPassword(req: Request, res: Response, next: NextFunct
     res.json(await service.resetPassword(req.user!.id, req.params.id, parsed.data.password));
   } catch (e) { next(e); }
 }
+
+export async function deleteUser(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json(await service.deleteUser(req.user!.id, req.params.id));
+  } catch (e) { next(e); }
+}

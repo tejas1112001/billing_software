@@ -1,24 +1,54 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Upload, Camera, X } from 'lucide-react';
+import { Upload, Camera, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { validateImageFile } from '@/utils/imageValidation';
+import { resolveImageUrl } from '@/utils/imageUrl';
 
 interface ImageUploadProps {
   value?: string | null;
   onChange: (file: File | null, previewUrl: string | null) => void;
   className?: string;
+  disabled?: boolean;
 }
 
-export function ImageUpload({ value, onChange, className }: ImageUploadProps) {
+export function ImageUpload({ value, onChange, className, disabled = false }: ImageUploadProps) {
   const galleryRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
+  const previewObjectUrl = useRef<string | null>(null);
   const [preview, setPreview] = useState<string | null>(value || null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setPreview(value || null);
+    setPreview(value ? resolveImageUrl(value) : null);
   }, [value]);
 
+  useEffect(() => {
+    return () => {
+      if (previewObjectUrl.current) {
+        URL.revokeObjectURL(previewObjectUrl.current);
+      }
+    };
+  }, []);
+
+  const clearPreviewObjectUrl = () => {
+    if (previewObjectUrl.current) {
+      URL.revokeObjectURL(previewObjectUrl.current);
+      previewObjectUrl.current = null;
+    }
+  };
+
   const handleFile = (file: File) => {
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setError(null);
+    clearPreviewObjectUrl();
+
     const url = URL.createObjectURL(file);
+    previewObjectUrl.current = url;
     setPreview(url);
     onChange(file, url);
   };
@@ -26,18 +56,20 @@ export function ImageUpload({ value, onChange, className }: ImageUploadProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) handleFile(file);
-    // Reset input so same file can be re-selected
     e.target.value = '';
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    if (disabled) return;
     const file = e.dataTransfer.files?.[0];
     if (file) handleFile(file);
   };
 
   const remove = () => {
+    clearPreviewObjectUrl();
     setPreview(null);
+    setError(null);
     onChange(null, null);
   };
 
@@ -46,71 +78,85 @@ export function ImageUpload({ value, onChange, className }: ImageUploadProps) {
       <div className={className}>
         <div className="relative w-32 h-32">
           <img src={preview} alt="Preview" className="w-full h-full object-cover rounded-md border" />
+          {disabled && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-md bg-background/70">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          )}
           <Button
             type="button"
             variant="destructive"
             size="icon"
             className="absolute -top-2 -right-2 h-6 w-6"
             onClick={remove}
+            disabled={disabled}
             aria-label="Remove image"
           >
             <X className="h-3 w-3" />
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground mt-1">Tap × to replace image</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          {disabled ? 'Uploading image...' : 'Tap × to replace image'}
+        </p>
       </div>
     );
   }
 
   return (
     <div className={className}>
-      {/* Drag-and-drop zone */}
       <div
-        className="border-2 border-dashed rounded-md p-4 flex flex-col items-center gap-2 cursor-pointer hover:border-primary transition-colors"
-        onClick={() => galleryRef.current?.click()}
+        className="border-2 border-dashed rounded-md p-4 flex flex-col items-center gap-2 cursor-pointer hover:border-primary transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+        onClick={() => !disabled && galleryRef.current?.click()}
         onDrop={handleDrop}
         onDragOver={(e) => e.preventDefault()}
         role="button"
-        tabIndex={0}
-        onKeyDown={(e) => e.key === 'Enter' && galleryRef.current?.click()}
+        tabIndex={disabled ? -1 : 0}
+        onKeyDown={(e) => e.key === 'Enter' && !disabled && galleryRef.current?.click()}
         aria-label="Upload image from gallery"
+        aria-disabled={disabled}
       >
         <Upload className="h-7 w-7 text-muted-foreground" />
         <p className="text-sm text-muted-foreground text-center">
           Click or drag to upload
           <br />
-          <span className="text-xs">JPG, PNG, WebP (max 5 MB)</span>
+          <span className="text-xs">JPG, JPEG, PNG, WebP (max 5 MB)</span>
         </p>
       </div>
 
-      {/* Camera button — visible when device supports capture */}
       <Button
         type="button"
         variant="outline"
         size="sm"
         className="mt-2 w-full gap-2"
         onClick={() => cameraRef.current?.click()}
+        disabled={disabled}
       >
         <Camera className="h-4 w-4" />
         Take Photo
       </Button>
 
-      {/* Hidden gallery input */}
+      {error && (
+        <p className="text-xs text-destructive mt-2" role="alert">
+          {error}
+        </p>
+      )}
+
       <input
         ref={galleryRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/*"
         className="hidden"
         onChange={handleChange}
+        disabled={disabled}
       />
-      {/* Hidden camera input — capture="environment" opens rear camera on mobile */}
       <input
         ref={cameraRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/*"
         capture="environment"
         className="hidden"
         onChange={handleChange}
+        disabled={disabled}
       />
     </div>
   );

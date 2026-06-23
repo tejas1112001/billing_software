@@ -89,3 +89,21 @@ export async function update(
   await createLog(userId, 'PRODUCT_UPDATE', { productId: product.id });
   return product;
 }
+
+export async function deleteProduct(id: string, userId: string) {
+  // Check if product is used in any order items
+  const orderItemCount = await prisma.orderItem.count({
+    where: { productId: id },
+  });
+
+  if (orderItemCount > 0) {
+    throw new Error('Cannot delete product that has been used in orders');
+  }
+
+  const product = await prisma.product.delete({
+    where: { id },
+  });
+
+  await createLog(userId, 'PRODUCT_UPDATE', { productId: product.id, action: 'deleted' });
+  return product;
+}

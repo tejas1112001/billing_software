@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ShoppingCart, Receipt, AlertTriangle, Store, TrendingUp,
+  ShoppingCart, AlertTriangle, TrendingUp,
   Wallet, Users, CreditCard, Banknote, Clock, PackageSearch,
-  TrendingDown, IndianRupee,
 } from 'lucide-react';
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -16,6 +15,9 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { dashboardService } from '@/services/dashboardService';
 import { formatCurrency } from '@/utils/formatCurrency';
+import { cn } from '@/lib/utils';
+import { getKpiCurrencyDisplay } from '@/utils/kpiDisplay';
+import { KpiMetricCard } from '@/components/common/KpiMetricCard';
 import type { DashboardStats, OperatorStat, OperatorType, ActivityLog } from '@/types';
 
 const COLORS = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4'];
@@ -35,24 +37,31 @@ const ACTION_LABELS: Record<string, string> = {
   PAYMENT_METHOD_UPDATE: 'Updated payment method',
 };
 
-function StatCard({ label, value, icon: Icon, color, sub, highlight }: {
-  label: string; value: string | number; icon: React.ElementType;
+function StatCard({ label, value, icon: Icon, color, sub, highlight, amount }: {
+  label: string; value: string | number;
+  icon: typeof ShoppingCart;
   color: string; sub?: string; highlight?: boolean;
+  amount?: number | string;
 }) {
-  const bgColor = color.replace('text-', 'bg-').replace('-600', '-100').replace('-500', '-100');
+  const iconBg = color.replace('text-', 'bg-').replace('-600', '-100').replace('-500', '-100');
+  const display = String(value);
+  let mobileValue: string | undefined;
+
+  if (amount !== undefined && display.includes('₹')) {
+    const { mobile, desktop } = getKpiCurrencyDisplay(amount, display);
+    if (mobile !== desktop) mobileValue = mobile;
+  }
+
   return (
-    <Card className={`p-4 ${highlight ? 'border-orange-300 bg-orange-50/40' : ''}`}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-muted-foreground leading-tight">{label}</p>
-          <p className="text-2xl font-bold mt-2 leading-none">{value}</p>
-          {sub && <p className="text-xs text-muted-foreground mt-1.5">{sub}</p>}
-        </div>
-        <div className={`p-2 rounded-lg shrink-0 ${bgColor}`}>
-          <Icon className={`h-4 w-4 ${color}`} />
-        </div>
-      </div>
-    </Card>
+    <KpiMetricCard
+      label={label}
+      value={display}
+      mobileValue={mobileValue}
+      sub={sub}
+      icon={Icon}
+      iconClassName={cn(iconBg, color, 'ring-black/5')}
+      highlight={highlight}
+    />
   );
 }
 
@@ -114,48 +123,16 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-5">
-      {/* ── Today's snapshot ── */}
-      <div className="grid grid-cols-3 lg:grid-cols-6 gap-3">
+      {/* ── KPI snapshot (4 only) ── */}
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
         {loadingStats ? (
-          Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-28" />)
+          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 sm:h-28" />)
         ) : (
           <>
             <StatCard label="Orders Today" value={stats?.totalOrdersToday ?? 0} icon={ShoppingCart} color="text-blue-600" />
-            <StatCard label="Receipts Today" value={stats?.totalReceiptsToday ?? 0} icon={Receipt} color="text-green-600" />
-            <StatCard label="Sales Today" value={formatCurrency(stats?.totalSalesToday ?? 0)} icon={TrendingUp} color="text-indigo-600" />
-            <StatCard label="Collected Today" value={formatCurrency(stats?.totalCollectedToday ?? 0)} icon={Wallet} color="text-emerald-600" />
+            <StatCard label="Sales Today" value={formatCurrency(stats?.totalSalesToday ?? 0)} amount={stats?.totalSalesToday ?? 0} icon={TrendingUp} color="text-indigo-600" />
+            <StatCard label="Collected Today" value={formatCurrency(stats?.totalCollectedToday ?? 0)} amount={stats?.totalCollectedToday ?? 0} icon={Wallet} color="text-emerald-600" />
             <StatCard label="Low Stock" value={stats?.lowStockProducts ?? 0} icon={AlertTriangle} color="text-yellow-600" sub="< 5 units" />
-            <StatCard label="Active Stores" value={stats?.activeStores ?? 0} icon={Store} color="text-purple-600" />
-          </>
-        )}
-      </div>
-
-      {/* ── Month & Outstanding summary ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {loadingStats ? (
-          Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24" />)
-        ) : (
-          <>
-            <StatCard
-              label="Sales This Month"
-              value={formatCurrency(stats?.totalSalesThisMonth ?? 0)}
-              icon={IndianRupee}
-              color="text-blue-600"
-            />
-            <StatCard
-              label="Collected This Month"
-              value={formatCurrency(stats?.totalCollectedThisMonth ?? 0)}
-              icon={Wallet}
-              color="text-emerald-600"
-            />
-            <StatCard
-              label="Total Outstanding"
-              value={formatCurrency(stats?.totalOutstanding ?? 0)}
-              icon={TrendingDown}
-              color="text-red-600"
-              sub="All-time unpaid balance"
-              highlight={(stats?.totalOutstanding ?? 0) > 0}
-            />
           </>
         )}
       </div>

@@ -23,4 +23,7 @@ export const userService = {
 
   resetPassword: (id: string, password: string): Promise<{ success: boolean }> =>
     api.post(`/users/${id}/reset-password`, { password }).then((r) => r.data),
+
+  delete: (id: string): Promise<{ success: boolean }> =>
+    api.delete(`/users/${id}`).then((r) => r.data),
 };

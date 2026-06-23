@@ -32,7 +32,13 @@ export default function LoginPage() {
     try {
       const result = await authService.login(data);
       setAuth(result.accessToken, result.user);
-      navigate('/');
+      
+      // Redirect admins to /admin, operators to /
+      if (result.user.role === 'ADMIN') {
+        navigate('/admin');
+      } else {
+        navigate('/');
+      }
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Login failed';
       toast.error(msg);

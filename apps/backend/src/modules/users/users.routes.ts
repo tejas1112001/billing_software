@@ -8,6 +8,7 @@ const router = Router();
 router.get('/', authenticate, authorize('ADMIN'), ctrl.list);
 router.post('/', authenticate, authorize('ADMIN'), ctrl.create);
 router.put('/:id', authenticate, authorize('ADMIN'), ctrl.update);
+router.delete('/:id', authenticate, authorize('ADMIN'), ctrl.deleteUser);
 router.post('/:id/reset-password', authenticate, authorize('ADMIN'), ctrl.resetPassword);
 
 export default router;

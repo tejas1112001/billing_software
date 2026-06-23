@@ -3,8 +3,10 @@ import { ShoppingCart, Receipt, TrendingUp, Clock, CalendarDays } from 'lucide-r
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { KpiMetricCard } from '@/components/common/KpiMetricCard';
 import { dashboardService } from '@/services/dashboardService';
 import { formatCurrency } from '@/utils/formatCurrency';
+import { getKpiCurrencyDisplay } from '@/utils/kpiDisplay';
 import { useAuthStore } from '@/stores/authStore';
 import type { PersonalStats } from '@/types';
 
@@ -58,42 +60,40 @@ export default function OperatorDashboard() {
       </div>
 
       {/* Stats */}
-      <div className="flex gap-2">
+      <div className="grid grid-cols-3 gap-2">
         {isLoading ? (
-          Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-28" style={{ flex: '1 1 0', minWidth: 0 }} />)
+          Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-[76px] sm:h-[88px]" />)
         ) : (
-          <>
-            <Card style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
-              <CardHeader className="px-3 pt-3 pb-1.5 flex flex-row items-center justify-between">
-                <CardTitle className="text-xs text-muted-foreground font-medium">Bills</CardTitle>
-                <ShoppingCart className="h-4 w-4 text-blue-600 shrink-0" />
-              </CardHeader>
-              <CardContent className="px-3 pb-3 pt-0">
-                <p className="text-3xl font-bold">{data?.ordersToday ?? 0}</p>
-                <p className="text-xs text-muted-foreground mt-1">Today</p>
-              </CardContent>
-            </Card>
-            <Card style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
-              <CardHeader className="px-3 pt-3 pb-1.5 flex flex-row items-center justify-between">
-                <CardTitle className="text-xs text-muted-foreground font-medium">Receipts</CardTitle>
-                <Receipt className="h-4 w-4 text-green-600 shrink-0" />
-              </CardHeader>
-              <CardContent className="px-3 pb-3 pt-0">
-                <p className="text-3xl font-bold">{data?.receiptsToday ?? 0}</p>
-                <p className="text-xs text-muted-foreground mt-1">Today</p>
-              </CardContent>
-            </Card>
-            <Card style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
-              <CardHeader className="px-3 pt-3 pb-1.5 flex flex-row items-center justify-between">
-                <CardTitle className="text-xs text-muted-foreground font-medium">Sales</CardTitle>
-                <TrendingUp className="h-4 w-4 text-indigo-600 shrink-0" />
-              </CardHeader>
-              <CardContent className="px-3 pb-3 pt-0">
-                <p className="font-bold truncate" style={{ fontSize: 'clamp(0.75rem, 3.2vw, 1.1rem)' }}>{formatCurrency(data?.salesToday ?? 0)}</p>
-                <p className="text-xs text-muted-foreground mt-1">Today</p>
-              </CardContent>
-            </Card>
-          </>
+          (() => {
+            const salesFull = formatCurrency(data?.salesToday ?? 0);
+            const salesKpi = getKpiCurrencyDisplay(data?.salesToday ?? 0, salesFull);
+            return (
+              <>
+                <KpiMetricCard
+                  label="Bills"
+                  value={data?.ordersToday ?? 0}
+                  sub="Today"
+                  icon={ShoppingCart}
+                  iconClassName="bg-blue-500/10 text-blue-600 ring-blue-500/20"
+                />
+                <KpiMetricCard
+                  label="Receipts"
+                  value={data?.receiptsToday ?? 0}
+                  sub="Today"
+                  icon={Receipt}
+                  iconClassName="bg-emerald-500/10 text-emerald-600 ring-emerald-500/20"
+                />
+                <KpiMetricCard
+                  label="Sales"
+                  value={salesKpi.desktop}
+                  mobileValue={salesKpi.mobile !== salesKpi.desktop ? salesKpi.mobile : undefined}
+                  sub="Today"
+                  icon={TrendingUp}
+                  iconClassName="bg-indigo-500/10 text-indigo-600 ring-indigo-500/20"
+                />
+              </>
+            );
+          })()
         )}
       </div>
 

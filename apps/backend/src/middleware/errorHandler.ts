@@ -21,7 +21,8 @@ export function errorHandler(
     return;
   }
 
-  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+  // Handle Prisma errors
+  if (isPrismaError(err)) {
     if (err.code === 'P2002') {
       const target = err.meta?.target as string[] | undefined;
       const fields = target?.join(', ') || 'unknown field';
@@ -43,6 +44,17 @@ export function errorHandler(
   }
 
   res.status(500).json({ error: 'Internal server error' });
+}
+
+// Type guard for Prisma errors
+function isPrismaError(err: unknown): err is { code: string; meta?: any } {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'code' in err &&
+    typeof (err as any).code === 'string' &&
+    (err as any).code.startsWith('P')
+  );
 }
 
 export class AppError extends Error {

@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { categoryService } from '@/services/categoryService';
 import { brandService } from '@/services/brandService';
-import { uploadImage } from '@/services/uploadService';
+import { uploadImage, getUploadErrorMessage } from '@/services/uploadService';
 import { usePagination } from '@/hooks/usePagination';
 import type { Category, Brand } from '@/types';
 
@@ -37,6 +38,7 @@ export default function CategoriesPage() {
 
   const pendingImageFile = useRef<File | null>(null);
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['categories', page, pageSize],
@@ -119,6 +121,7 @@ export default function CategoriesPage() {
       let imageUrl: string | null = currentImageUrl;
 
       if (pendingImageFile.current) {
+        setIsUploading(true);
         imageUrl = await uploadImage(pendingImageFile.current);
       }
 
@@ -129,8 +132,10 @@ export default function CategoriesPage() {
       } else {
         createMut.mutate(payload);
       }
-    } catch {
-      toast.error('Image upload failed');
+    } catch (error) {
+      toast.error(getUploadErrorMessage(error));
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -164,32 +169,50 @@ export default function CategoriesPage() {
   ];
 
   return (
-    <div>
+    <div className="space-y-4 sm:space-y-5 lg:space-y-6">
+      {/* Back Navigation */}
+      <Link to="/admin">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="gap-2 text-muted-foreground hover:text-foreground transition-colors -ml-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span className="text-sm">Back to Admin Panel</span>
+        </Button>
+      </Link>
+      
       <PageHeader
         title="Categories"
         actions={
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Category
+          <Button onClick={openCreate} size="sm" className="gap-1.5 h-8 text-xs sm:h-9 sm:text-sm sm:gap-2">
+            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Add Category</span>
+            <span className="sm:hidden">Add</span>
           </Button>
         }
       />
-      <DataTable
-        columns={columns as unknown as ColumnDef<Record<string, unknown>>[]}
-        data={(data?.data || []) as Record<string, unknown>[]}
-        isLoading={isLoading}
-        getRowKey={(r) => (r as unknown as Category).id}
-      />
-      {data && (
-        <Pagination
-          page={page}
-          pageSize={pageSize}
-          total={data.total}
-          totalPages={data.totalPages}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
+      
+      <div className="rounded-lg border bg-card shadow-sm">
+        <DataTable
+          columns={columns as unknown as ColumnDef<Record<string, unknown>>[]}
+          data={(data?.data || []) as Record<string, unknown>[]}
+          isLoading={isLoading}
+          getRowKey={(r) => (r as unknown as Category).id}
         />
-      )}
+        {data && (
+          <div className="border-t">
+            <Pagination
+              page={page}
+              pageSize={pageSize}
+              total={data.total}
+              totalPages={data.totalPages}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          </div>
+        )}
+      </div>
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -224,6 +247,7 @@ export default function CategoriesPage() {
               <div className="mt-1">
                 <ImageUpload
                   value={currentImageUrl}
+                  disabled={isUploading || isSubmitting}
                   onChange={(file, previewUrl) => {
                     pendingImageFile.current = file;
                     if (!file) {
@@ -239,8 +263,8 @@ export default function CategoriesPage() {
               <Button type="button" variant="outline" onClick={closeDialog}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Saving...' : 'Save'}
+              <Button type="submit" disabled={isSubmitting || isUploading}>
+                {isUploading ? 'Uploading...' : isSubmitting ? 'Saving...' : 'Save'}
               </Button>
             </div>
           </form>

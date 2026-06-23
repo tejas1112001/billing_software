@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil } from 'lucide-react';
+import { Plus, Pencil, Trash2, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,6 +12,7 @@ import { Pagination } from '@/components/common/Pagination';
 import { SearchInput } from '@/components/common/SearchInput';
 import { ImageUpload } from '@/components/common/ImageUpload';
 import { ImageThumbnail } from '@/components/common/ImageThumbnail';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,7 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { productService } from '@/services/productService';
 import { brandService } from '@/services/brandService';
 import { categoryService } from '@/services/categoryService';
-import { uploadImage } from '@/services/uploadService';
+import { uploadImage, getUploadErrorMessage } from '@/services/uploadService';
 import { usePagination } from '@/hooks/usePagination';
 import { formatCurrency } from '@/utils/formatCurrency';
 import type { Product, Brand, Category } from '@/types';
@@ -41,9 +43,11 @@ export default function ProductsPage() {
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<Product | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const pendingImageFile = useRef<File | null>(null);
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['products', page, pageSize, search],
@@ -90,6 +94,20 @@ export default function ProductsPage() {
     onError: () => toast.error('Failed to update product'),
   });
 
+  const deleteMut = useMutation({
+    mutationFn: () => productService.delete(deleteId!),
+    onSuccess: () => {
+      toast.success('Product deleted');
+      qc.invalidateQueries({ queryKey: ['products'] });
+      setDeleteId(null);
+    },
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      toast.error(msg || 'Cannot delete product that has been used in orders');
+      setDeleteId(null);
+    },
+  });
+
   const openCreate = () => {
     setEditItem(null);
     pendingImageFile.current = null;
@@ -125,6 +143,7 @@ export default function ProductsPage() {
       let imageUrl: string | null = currentImageUrl;
 
       if (pendingImageFile.current) {
+        setIsUploading(true);
         imageUrl = await uploadImage(pendingImageFile.current);
       }
 
@@ -135,8 +154,10 @@ export default function ProductsPage() {
       } else {
         createMut.mutate(payload);
       }
-    } catch {
-      toast.error('Image upload failed');
+    } catch (error) {
+      toast.error(getUploadErrorMessage(error));
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -162,25 +183,44 @@ export default function ProductsPage() {
       key: 'actions',
       header: 'Actions',
       cell: (r) => (
-        <Button size="sm" variant="ghost" onClick={() => openEdit(r)}>
-          <Pencil className="h-4 w-4" />
-        </Button>
+        <div className="flex gap-1">
+          <Button size="sm" variant="ghost" onClick={() => openEdit(r)}>
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDeleteId(r.id)}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       ),
     },
   ];
 
   return (
-    <div>
+    <div className="space-y-4 sm:space-y-5 lg:space-y-6">
+      {/* Back Navigation */}
+      <Link to="/admin">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="gap-2 text-muted-foreground hover:text-foreground transition-colors -ml-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span className="text-sm">Back to Admin Panel</span>
+        </Button>
+      </Link>
+      
       <PageHeader
         title="Products"
         actions={
-          <Button onClick={openCreate} size="sm" className="h-8 sm:h-9">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Product
+          <Button onClick={openCreate} size="sm" className="gap-1.5 h-8 text-xs sm:h-9 sm:text-sm sm:gap-2">
+            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Add Product</span>
+            <span className="sm:hidden">Add</span>
           </Button>
         }
       />
-      <div className="mb-3">
+      
+      <div className="mb-4">
         <SearchInput
           placeholder="Search products..."
           onChange={(v) => {
@@ -189,22 +229,27 @@ export default function ProductsPage() {
           }}
         />
       </div>
-      <DataTable
-        columns={columns as unknown as ColumnDef<Record<string, unknown>>[]}
-        data={(data?.data || []) as Record<string, unknown>[]}
-        isLoading={isLoading}
-        getRowKey={(r) => (r as unknown as Product).id}
-      />
-      {data && (
-        <Pagination
-          page={page}
-          pageSize={pageSize}
-          total={data.total}
-          totalPages={data.totalPages}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
+      
+      <div className="rounded-lg border bg-card shadow-sm">
+        <DataTable
+          columns={columns as unknown as ColumnDef<Record<string, unknown>>[]}
+          data={(data?.data || []) as Record<string, unknown>[]}
+          isLoading={isLoading}
+          getRowKey={(r) => (r as unknown as Product).id}
         />
-      )}
+        {data && (
+          <div className="border-t">
+            <Pagination
+              page={page}
+              pageSize={pageSize}
+              total={data.total}
+              totalPages={data.totalPages}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          </div>
+        )}
+      </div>
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -263,6 +308,7 @@ export default function ProductsPage() {
               <div className="mt-1">
                 <ImageUpload
                   value={currentImageUrl}
+                  disabled={isUploading || isSubmitting}
                   onChange={(file, previewUrl) => {
                     pendingImageFile.current = file;
                     if (!file) {
@@ -292,13 +338,23 @@ export default function ProductsPage() {
               <Button type="button" variant="outline" onClick={closeDialog} size="sm">
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting} size="sm">
-                {isSubmitting ? 'Saving...' : 'Save'}
+              <Button type="submit" disabled={isSubmitting || isUploading} size="sm">
+                {isUploading ? 'Uploading...' : isSubmitting ? 'Saving...' : 'Save'}
               </Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
+      
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(o) => !o && setDeleteId(null)}
+        title="Delete Product"
+        description="Are you sure you want to delete this product? This action cannot be undone."
+        onConfirm={() => deleteMut.mutate()}
+        loading={deleteMut.isPending}
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, KeyRound } from 'lucide-react';
+import { Plus, Pencil, KeyRound, Trash2, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,6 +9,7 @@ import { z } from 'zod';
 import { PageHeader } from '@/components/common/PageHeader';
 import { DataTable, ColumnDef } from '@/components/common/DataTable';
 import { Pagination } from '@/components/common/Pagination';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -47,6 +49,7 @@ export default function UsersPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState<AppUser | null>(null);
   const [resetUser, setResetUser] = useState<AppUser | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['users', page, pageSize],
@@ -73,6 +76,20 @@ export default function UsersPage() {
     mutationFn: (d: ResetForm) => userService.resetPassword(resetUser!.id, d.password),
     onSuccess: () => { toast.success('Password reset'); setResetUser(null); resetForm.reset(); },
     onError: () => toast.error('Failed to reset password'),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: () => userService.delete(deleteId!),
+    onSuccess: () => {
+      toast.success('User deleted');
+      qc.invalidateQueries({ queryKey: ['users'] });
+      setDeleteId(null);
+    },
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      toast.error(msg || 'Failed to delete user');
+      setDeleteId(null);
+    },
   });
 
   const openEdit = (u: AppUser) => {
@@ -105,32 +122,58 @@ export default function UsersPage() {
         <div className="flex gap-1">
           <Button size="sm" variant="ghost" onClick={() => openEdit(r)}><Pencil className="h-4 w-4" /></Button>
           <Button size="sm" variant="ghost" onClick={() => { setResetUser(r); resetForm.reset(); }}><KeyRound className="h-4 w-4" /></Button>
+          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDeleteId(r.id)}><Trash2 className="h-4 w-4" /></Button>
         </div>
       ),
     },
   ];
 
   return (
-    <div>
+    <div className="space-y-4 sm:space-y-5 lg:space-y-6">
+      {/* Back Navigation */}
+      <Link to="/admin">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="gap-2 text-muted-foreground hover:text-foreground transition-colors -ml-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span className="text-sm">Back to Admin Panel</span>
+        </Button>
+      </Link>
+      
       <PageHeader
         title="User Management"
         description="Manage operators and admins"
         actions={
-          <Button onClick={() => { setCreateOpen(true); createForm.reset({ role: 'OPERATOR' }); }} size="sm">
-            <Plus className="h-4 w-4 mr-2" />Add User
+          <Button onClick={() => { setCreateOpen(true); createForm.reset({ role: 'OPERATOR' }); }} size="sm" className="gap-1.5 h-8 text-xs sm:h-9 sm:text-sm sm:gap-2">
+            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Add User</span>
+            <span className="sm:hidden">Add</span>
           </Button>
         }
       />
 
-      <DataTable
-        columns={columns as unknown as ColumnDef<Record<string, unknown>>[]}
-        data={(data?.data || []) as unknown as Record<string, unknown>[]}
-        isLoading={isLoading}
-        getRowKey={(r) => (r as unknown as AppUser).id}
-      />
-      {data && (
-        <Pagination page={page} pageSize={pageSize} total={data.total} totalPages={data.totalPages} onPageChange={setPage} onPageSizeChange={setPageSize} />
-      )}
+      <div className="rounded-lg border bg-card shadow-sm">
+        <DataTable
+          columns={columns as unknown as ColumnDef<Record<string, unknown>>[]}
+          data={(data?.data || []) as unknown as Record<string, unknown>[]}
+          isLoading={isLoading}
+          getRowKey={(r) => (r as unknown as AppUser).id}
+        />
+        {data && (
+          <div className="border-t">
+            <Pagination 
+              page={page} 
+              pageSize={pageSize} 
+              total={data.total} 
+              totalPages={data.totalPages} 
+              onPageChange={setPage} 
+              onPageSizeChange={setPageSize} 
+            />
+          </div>
+        )}
+      </div>
 
       {/* Create dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -240,6 +283,16 @@ export default function UsersPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(o) => !o && setDeleteId(null)}
+        title="Delete User"
+        description="Are you sure you want to delete this user? This action cannot be undone."
+        onConfirm={() => deleteMut.mutate()}
+        loading={deleteMut.isPending}
+      />
     </div>
   );
 }

@@ -22,12 +22,14 @@ export function DataTable<T extends Record<string, unknown>>({ columns, data, is
   if (!data.length) return <EmptyState />;
 
   return (
-    <div className="rounded-md border overflow-x-auto">
+    <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
             {columns.map((col) => (
-              <TableHead key={col.key} className={col.className}>{col.header}</TableHead>
+              <TableHead key={col.key} className={`text-xs sm:text-sm ${col.className || ''}`}>
+                {col.header}
+              </TableHead>
             ))}
           </TableRow>
         </TableHeader>
@@ -35,7 +37,7 @@ export function DataTable<T extends Record<string, unknown>>({ columns, data, is
           {data.map((row, i) => (
             <TableRow key={getRowKey ? getRowKey(row) : i}>
               {columns.map((col) => (
-                <TableCell key={col.key} className={col.className}>
+                <TableCell key={col.key} className={`text-xs sm:text-sm py-2.5 sm:py-3 ${col.className || ''}`}>
                   {col.cell ? col.cell(row) : String(row[col.key] ?? '')}
                 </TableCell>
               ))}

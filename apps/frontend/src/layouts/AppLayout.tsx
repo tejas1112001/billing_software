@@ -1,13 +1,14 @@
-import { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, Receipt, BookOpen, BarChart3,
-  Settings, Menu, X, LogOut, User, Zap,
+  Settings, Menu, X, LogOut, User, Zap, ChevronDown, FileBarChart,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/stores/authStore';
 import { authService } from '@/services/authService';
+import { UserMenu } from '@/components/common/UserMenu';
 import { cn } from '@/lib/utils';
 
 // Operator sees: dashboard, generate bill, generate receipt, ledger, own logs
@@ -26,10 +27,26 @@ const adminNavItems = [
   { to: '/admin', icon: Settings, label: 'Admin Panel', end: false },
 ];
 
+// Admin reports under Dashboard
+const adminReportItems = [
+  { to: '/reports', label: 'All Reports', end: true },
+  { to: '/reports/cash-credit', label: 'Cash and Credit', end: false },
+  { to: '/reports/purchase-quantity', label: 'Purchases Qty', end: false },
+  { to: '/reports/profit', label: 'Profit Report', end: false },
+];
+
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [reportsOpen, setReportsOpen] = useState(false);
   const { user, clearAuth } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/reports')) {
+      setReportsOpen(true);
+    }
+  }, [location.pathname]);
 
   const handleLogout = async () => {
     try { await authService.logout(); } catch { /* ignore */ }
@@ -49,7 +66,7 @@ export function AppLayout() {
             <Zap className="h-4 w-4 text-white" />
           </div>
           <div>
-            <h2 className="font-bold text-sm text-white leading-tight">Tripigotales</h2>
+            <h2 className="font-bold text-sm text-white leading-tight">Software</h2>
             <p className="text-[10px] text-indigo-300 leading-tight">Management System</p>
           </div>
         </div>
@@ -80,7 +97,6 @@ export function AppLayout() {
           >
             {({ isActive }) => (
               <>
-                {/* Left accent bar on active */}
                 {isActive && (
                   <span className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r-full bg-white/70" />
                 )}
@@ -90,6 +106,48 @@ export function AppLayout() {
             )}
           </NavLink>
         ))}
+
+        {/* Reports section (admin only) */}
+        {user?.role === 'ADMIN' && (
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => setReportsOpen((o) => !o)}
+              className={cn(
+                'w-full flex items-center gap-3 px-3 py-3 rounded-md text-sm font-medium transition-colors',
+                location.pathname.startsWith('/reports')
+                  ? 'bg-white/10 text-white'
+                  : 'text-indigo-200 hover:bg-white/10 hover:text-white'
+              )}
+            >
+              <FileBarChart className="h-4 w-4 shrink-0" />
+              <span className="flex-1 text-left">Reports</span>
+              <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform', reportsOpen && 'rotate-180')} />
+            </button>
+            {reportsOpen && (
+              <div className="mt-0.5 ml-3 pl-3 border-l border-white/10 space-y-0.5">
+                {adminReportItems.map(({ to, label, end }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    end={end}
+                    onClick={() => setSidebarOpen(false)}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-colors',
+                        isActive
+                          ? 'bg-[#4f46e5] text-white'
+                          : 'text-indigo-200 hover:bg-white/10 hover:text-white'
+                      )
+                    }
+                  >
+                    {label}
+                  </NavLink>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </nav>
 
       {/* User card + logout */}
@@ -130,14 +188,21 @@ export function AppLayout() {
       </aside>
 
       {/* Mobile sidebar overlay */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
-          <aside className="absolute left-0 top-0 h-full w-64 flex flex-col bg-[#1e1b4b] border-r border-[#e5e3fb] z-10">
-            <SidebarContent />
-          </aside>
-        </div>
-      )}
+      <div className={cn(
+        "fixed inset-0 z-50 lg:hidden transition-opacity duration-300",
+        sidebarOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+      )}>
+        <div 
+          className="absolute inset-0 bg-black/50 transition-opacity" 
+          onClick={() => setSidebarOpen(false)} 
+        />
+        <aside className={cn(
+          "absolute left-0 top-0 h-full w-64 flex flex-col bg-[#1e1b4b] border-r border-[#e5e3fb] z-10 transition-transform duration-300 ease-out",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        )}>
+          <SidebarContent />
+        </aside>
+      </div>
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -146,24 +211,25 @@ export function AppLayout() {
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="text-sm font-semibold lg:hidden text-primary">Tripigotales</span>
+          <span className="text-sm font-semibold lg:hidden text-primary">Software</span>
           <div className="flex-1" />
+          
+          {/* Desktop User Menu */}
           <div className="hidden sm:flex items-center gap-3">
             {user?.operatorType && (
-              <Badge variant={user.operatorType === 'CASH' ? 'success' : 'warning'} className="text-xs">
-                {user.operatorType}
-              </Badge>
+              <>
+                <Badge variant={user.operatorType === 'CASH' ? 'success' : 'warning'} className="text-xs">
+                  {user.operatorType}
+                </Badge>
+                <div className="h-5 w-px bg-border" />
+              </>
             )}
-            <div className="h-5 w-px bg-border" />
-            <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center shrink-0">
-                <User className="h-4 w-4 text-white" />
-              </div>
-              <div className="flex flex-col justify-center">
-                <p className="text-xs font-semibold leading-tight">{user?.username}</p>
-                <p className="text-[10px] text-muted-foreground leading-tight capitalize">{user?.role?.toLowerCase()}</p>
-              </div>
-            </div>
+            <UserMenu variant="default" />
+          </div>
+
+          {/* Mobile User Menu */}
+          <div className="sm:hidden">
+            <UserMenu variant="compact" />
           </div>
         </header>
 

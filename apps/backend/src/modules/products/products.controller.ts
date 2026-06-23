@@ -35,3 +35,10 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
     res.json(product);
   } catch (e) { next(e); }
 }
+
+export async function deleteProduct(req: Request, res: Response, next: NextFunction) {
+  try {
+    const product = await productsService.deleteProduct(req.params.id, req.user!.id);
+    res.json(product);
+  } catch (e) { next(e); }
+}

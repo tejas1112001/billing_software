@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -59,10 +60,50 @@ export default function StoresPage() {
   ];
 
   return (
-    <div>
-      <PageHeader title="Stores" actions={<Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Add Store</Button>} />
-      <DataTable columns={columns as unknown as ColumnDef<Record<string, unknown>>[]} data={(data?.data || []) as Record<string, unknown>[]} isLoading={isLoading} getRowKey={(r) => (r as unknown as Store).id} />
-      {data && <Pagination page={page} pageSize={pageSize} total={data.total} totalPages={data.totalPages} onPageChange={setPage} onPageSizeChange={setPageSize} />}
+    <div className="space-y-4 sm:space-y-5 lg:space-y-6">
+      {/* Back Navigation */}
+      <Link to="/admin">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="gap-2 text-muted-foreground hover:text-foreground transition-colors -ml-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span className="text-sm">Back to Admin Panel</span>
+        </Button>
+      </Link>
+      
+      <PageHeader 
+        title="Stores" 
+        actions={
+          <Button onClick={openCreate} size="sm" className="gap-1.5 h-8 text-xs sm:h-9 sm:text-sm sm:gap-2">
+            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Add Store</span>
+            <span className="sm:hidden">Add</span>
+          </Button>
+        } 
+      />
+      
+      <div className="rounded-lg border bg-card shadow-sm">
+        <DataTable 
+          columns={columns as unknown as ColumnDef<Record<string, unknown>>[]} 
+          data={(data?.data || []) as Record<string, unknown>[]} 
+          isLoading={isLoading} 
+          getRowKey={(r) => (r as unknown as Store).id} 
+        />
+        {data && (
+          <div className="border-t">
+            <Pagination 
+              page={page} 
+              pageSize={pageSize} 
+              total={data.total} 
+              totalPages={data.totalPages} 
+              onPageChange={setPage} 
+              onPageSizeChange={setPageSize} 
+            />
+          </div>
+        )}
+      </div>
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>{editItem ? 'Edit Store' : 'Add Store'}</DialogTitle></DialogHeader>

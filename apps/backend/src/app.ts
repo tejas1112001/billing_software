@@ -24,6 +24,9 @@ import usersRouter from './modules/users/users.routes';
 
 const app = express();
 
+// Trust reverse proxy headers in production (X-Forwarded-* for HTTPS/host).
+app.set('trust proxy', 1);
+
 // Security
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 const backendUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 4000}`;
@@ -58,7 +61,7 @@ app.use(express.urlencoded({ extended: true }));
 // Rate limiting for auth routes
 const authLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 10,
+  max: 100, // Increased for development
   message: { error: 'Too many requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,

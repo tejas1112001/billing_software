@@ -1,5 +1,6 @@
 import { ImageOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { resolveImageUrl } from '@/utils/imageUrl';
 
 interface ImageThumbnailProps {
   src?: string | null;
@@ -15,11 +16,12 @@ const sizeClasses = {
 
 export function ImageThumbnail({ src, alt, className, size = 'sm' }: ImageThumbnailProps) {
   const dimension = sizeClasses[size];
+  const resolvedSrc = resolveImageUrl(src);
 
-  if (src) {
+  if (resolvedSrc) {
     return (
       <img
-        src={src}
+        src={resolvedSrc}
         alt={alt}
         className={cn(dimension, 'object-cover rounded flex-shrink-0', className)}
         loading="lazy"

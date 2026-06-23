@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Power, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Power, Trash2, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/common/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -65,7 +66,19 @@ export default function PaymentMethodsPage() {
   };
 
   return (
-    <div className="max-w-lg">
+    <div className="max-w-2xl space-y-4 sm:space-y-5 lg:space-y-6">
+      {/* Back Navigation */}
+      <Link to="/admin">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="gap-2 text-muted-foreground hover:text-foreground transition-colors -ml-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span className="text-sm">Back to Admin Panel</span>
+        </Button>
+      </Link>
+      
       <PageHeader title="Payment Methods" description="Manage accepted payment types" />
 
       {/* Add form */}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Filter } from 'lucide-react';
+import { Filter, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/common/PageHeader';
 import { DataTable, ColumnDef } from '@/components/common/DataTable';
 import { Pagination } from '@/components/common/Pagination';
@@ -97,7 +98,19 @@ export default function UserLogsPage() {
   ];
 
   return (
-    <div>
+    <div className="space-y-4 sm:space-y-5 lg:space-y-6">
+      {/* Back Navigation */}
+      <Link to="/admin">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="gap-2 text-muted-foreground hover:text-foreground transition-colors -ml-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span className="text-sm">Back to Admin Panel</span>
+        </Button>
+      </Link>
+      
       <PageHeader
         title="User Logs"
         description="Audit trail of all significant system events"
@@ -198,22 +211,101 @@ export default function UserLogsPage() {
         </CardContent>
       </Card>
 
-      <DataTable
-        columns={columns as unknown as ColumnDef<Record<string, unknown>>[]}
-        data={(data?.data || []) as Record<string, unknown>[]}
-        isLoading={isLoading}
-        getRowKey={(r) => (r as unknown as UserLog).id}
-      />
-      {data && (
-        <Pagination
-          page={page}
-          pageSize={pageSize}
-          total={data.total}
-          totalPages={data.totalPages}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
+      {/* Mobile Card View - Only on mobile */}
+      <div className="lg:hidden space-y-3">
+        {isLoading ? (
+          // Loading skeleton
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="rounded-lg border bg-card p-4 animate-pulse">
+                <div className="h-4 bg-muted rounded w-3/4 mb-3"></div>
+                <div className="h-3 bg-muted rounded w-1/2 mb-2"></div>
+                <div className="h-3 bg-muted rounded w-2/3"></div>
+              </div>
+            ))}
+          </div>
+        ) : !data?.data || data.data.length === 0 ? (
+          // Empty state
+          <div className="rounded-lg border bg-card p-8 text-center">
+            <p className="text-sm text-muted-foreground">No logs found</p>
+          </div>
+        ) : (
+          // Log cards
+          data.data.map((log: any) => {
+            const meta = log.meta as Record<string, unknown> | null;
+            const detail = meta ? (meta.billNumber || meta.receiptNumber || meta.name || meta.username || '') : '';
+            
+            return (
+              <Card key={log.id} className="overflow-hidden">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">
+                        {log.user?.username || 'Unknown User'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {formatDateTime(log.createdAt)}
+                      </p>
+                    </div>
+                    <Badge 
+                      variant={ACTION_COLORS[log.action] || 'secondary'} 
+                      className="text-xs shrink-0"
+                    >
+                      {log.action.replace(/_/g, ' ')}
+                    </Badge>
+                  </div>
+                  {detail && (
+                    <div className="pt-2 border-t">
+                      <p className="text-xs text-muted-foreground">
+                        <span className="font-medium">Details: </span>
+                        <span className="font-mono">{String(detail)}</span>
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+        
+        {/* Mobile Pagination */}
+        {data && data.data.length > 0 && (
+          <Card>
+            <CardContent className="p-3">
+              <Pagination
+                page={page}
+                pageSize={pageSize}
+                total={data.total}
+                totalPages={data.totalPages}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+              />
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Desktop Table View - Only on desktop */}
+      <div className="hidden lg:block rounded-lg border bg-card shadow-sm">
+        <DataTable
+          columns={columns as unknown as ColumnDef<Record<string, unknown>>[]}
+          data={(data?.data || []) as Record<string, unknown>[]}
+          isLoading={isLoading}
+          getRowKey={(r) => (r as unknown as UserLog).id}
         />
-      )}
+        {data && (
+          <div className="border-t">
+            <Pagination
+              page={page}
+              pageSize={pageSize}
+              total={data.total}
+              totalPages={data.totalPages}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

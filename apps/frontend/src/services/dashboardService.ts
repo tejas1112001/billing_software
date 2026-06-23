@@ -19,4 +19,14 @@ export const dashboardService = {
 
   getRecentActivity: (): Promise<{ logs: ActivityLog[] }> =>
     api.get('/dashboard/recent-activity').then((r) => r.data),
+
+  // New report endpoints
+  getCashCreditReport: (params: { filter?: string; startDate?: string; endDate?: string }) =>
+    api.get('/dashboard/cash-credit-report', { params }).then((r) => r.data),
+
+  getPurchaseQuantityReport: (params: { startDate?: string; endDate?: string; productId?: string; categoryId?: string; brandId?: string; storeId?: string; page?: number; limit?: number }) =>
+    api.get('/dashboard/purchase-quantity-report', { params }).then((r) => r.data),
+
+  getProfitReport: (params: { startDate?: string; endDate?: string; productId?: string; categoryId?: string; brandId?: string; storeId?: string; page?: number; limit?: number }) =>
+    api.get('/dashboard/profit-report', { params }).then((r) => r.data),
 };

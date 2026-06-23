@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Download, FileSpreadsheet, Printer, Filter } from 'lucide-react';
+import { Download, FileSpreadsheet, Printer, Filter, ImageOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/common/PageHeader';
 import { DataTable, ColumnDef } from '@/components/common/DataTable';
@@ -76,6 +76,30 @@ export default function StockReportPage() {
   };
 
   const columns: ColumnDef<Product>[] = [
+    {
+      key: 'imageUrl',
+      header: 'Product',
+      cell: (r) => (
+        <div className="flex items-center justify-center">
+          {r.imageUrl ? (
+            <img
+              src={r.imageUrl}
+              alt={r.modelName}
+              className="h-10 w-10 object-cover rounded flex-shrink-0"
+              loading="lazy"
+            />
+          ) : (
+            <div
+              className="h-10 w-10 rounded bg-muted flex items-center justify-center flex-shrink-0"
+              title="No image"
+              aria-label="No image"
+            >
+              <ImageOff className="h-4 w-4 text-muted-foreground" />
+            </div>
+          )}
+        </div>
+      ),
+    },
     { key: 'modelName', header: 'Model Name' },
     {
       key: 'brand',

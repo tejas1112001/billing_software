@@ -28,6 +28,12 @@ const UserLogsPage = lazy(() => import('@/pages/admin/UserLogsPage'));
 const PaymentMethodsPage = lazy(() => import('@/pages/admin/PaymentMethodsPage'));
 const UsersPage = lazy(() => import('@/pages/admin/UsersPage'));
 
+// Reports (admin)
+const ReportsIndex = lazy(() => import('@/pages/reports/ReportsIndex'));
+const CashCreditReport = lazy(() => import('@/pages/admin/reports/CashCreditReport'));
+const PurchaseQuantityReport = lazy(() => import('@/pages/admin/reports/PurchaseQuantityReport'));
+const ProfitReport = lazy(() => import('@/pages/admin/reports/ProfitReport'));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: { staleTime: 30000, retry: 1 },
@@ -65,6 +71,11 @@ export default function App() {
 
                 {/* Admin-only */}
                 <Route element={<AdminRoute />}>
+                  <Route path="/reports" element={<ReportsIndex />} />
+                  <Route path="/reports/cash-credit" element={<CashCreditReport />} />
+                  <Route path="/reports/purchase-quantity" element={<PurchaseQuantityReport />} />
+                  <Route path="/reports/profit" element={<ProfitReport />} />
+
                   <Route path="/admin" element={<AdminIndexPage />} />
                   <Route path="/admin/brands" element={<BrandsPage />} />
                   <Route path="/admin/categories" element={<CategoriesPage />} />
@@ -73,6 +84,11 @@ export default function App() {
                   <Route path="/admin/users" element={<UsersPage />} />
                   <Route path="/admin/payment-methods" element={<PaymentMethodsPage />} />
                   <Route path="/admin/user-logs" element={<UserLogsPage />} />
+
+                  {/* Legacy redirects */}
+                  <Route path="/admin/reports/cash-credit" element={<Navigate to="/reports/cash-credit" replace />} />
+                  <Route path="/admin/reports/purchase-quantity" element={<Navigate to="/reports/purchase-quantity" replace />} />
+                  <Route path="/admin/reports/profit" element={<Navigate to="/reports/profit" replace />} />
                 </Route>
               </Route>
             </Route>
