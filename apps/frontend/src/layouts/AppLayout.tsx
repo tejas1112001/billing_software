@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, Receipt, BookOpen, BarChart3,
   Settings, Menu, X, LogOut, User, Zap, ChevronDown, FileBarChart,
+  type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,41 +12,83 @@ import { authService } from '@/services/authService';
 import { UserMenu } from '@/components/common/UserMenu';
 import { cn } from '@/lib/utils';
 
-// Operator sees: dashboard, generate bill, generate receipt, ledger, own logs
-const operatorNavItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
-  { to: '/bills', icon: FileText, label: 'Generate Bill', end: false },
-  { to: '/receipts', icon: Receipt, label: 'Generate Receipt', end: false },
-  { to: '/ledger', icon: BookOpen, label: 'Ledger', end: false },
+type NavChild = { to: string; label: string; end?: boolean };
+
+type NavItem = {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  to?: string;
+  end?: boolean;
+  children?: NavChild[];
+};
+
+const billingChildren: NavChild[] = [
+  { to: '/bills', label: 'New Bill', end: true },
+  { to: '/bills/generated', label: 'Generated Bills', end: false },
 ];
 
-// Admin sees: dashboard + full admin panel
-const adminNavItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
-  { to: '/stock-reports', icon: BarChart3, label: 'Stock Report', end: false },
-  { to: '/ledger', icon: BookOpen, label: 'Ledger', end: false },
-  { to: '/admin', icon: Settings, label: 'Admin Panel', end: false },
+const receiptChildren: NavChild[] = [
+  { to: '/receipts', label: 'New Receipt', end: true },
+  { to: '/receipts/generated', label: 'Generated Receipts', end: false },
 ];
 
-// Admin reports under Dashboard
-const adminReportItems = [
+const operatorNav: NavItem[] = [
+  { id: 'dashboard', to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
+  { id: 'billing', icon: FileText, label: 'Billing', children: billingChildren },
+  { id: 'receipts', icon: Receipt, label: 'Receipts', children: receiptChildren },
+  { id: 'ledger', to: '/ledger', icon: BookOpen, label: 'Ledger' },
+];
+
+const adminNav: NavItem[] = [
+  { id: 'dashboard', to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
+  { id: 'billing', icon: FileText, label: 'Billing', children: billingChildren },
+  { id: 'receipts', icon: Receipt, label: 'Receipts', children: receiptChildren },
+  { id: 'stock', to: '/stock-reports', icon: BarChart3, label: 'Stock Report' },
+  { id: 'ledger', to: '/ledger', icon: BookOpen, label: 'Ledger' },
+  { id: 'admin', to: '/admin', icon: Settings, label: 'Admin Panel' },
+];
+
+const adminReportItems: NavChild[] = [
   { to: '/reports', label: 'All Reports', end: true },
   { to: '/reports/cash-credit', label: 'Cash and Credit', end: false },
   { to: '/reports/purchase-quantity', label: 'Purchases Qty', end: false },
   { to: '/reports/profit', label: 'Profit Report', end: false },
+  { to: '/reports/product', label: 'Product Report', end: false },
 ];
+
+function isNavItemActive(item: NavItem, pathname: string): boolean {
+  if (item.children) {
+    return item.children.some((c) =>
+      c.end ? pathname === c.to : pathname.startsWith(c.to)
+    );
+  }
+  if (!item.to) return false;
+  return item.end ? pathname === item.to : pathname.startsWith(item.to);
+}
 
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [reportsOpen, setReportsOpen] = useState(false);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    billing: true,
+    receipts: false,
+    reports: false,
+  });
   const { user, clearAuth } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    if (location.pathname.startsWith('/reports')) {
-      setReportsOpen(true);
-    }
+    setOpenSections((prev) => ({
+      ...prev,
+      billing: location.pathname.startsWith('/bills') ? true : prev.billing,
+      receipts: location.pathname.startsWith('/receipts') ? true : prev.receipts,
+      reports: location.pathname.startsWith('/reports') ? true : prev.reports,
+    }));
+  }, [location.pathname]);
+
+  useEffect(() => {
+    setSidebarOpen(false);
   }, [location.pathname]);
 
   const handleLogout = async () => {
@@ -54,14 +97,16 @@ export function AppLayout() {
     navigate('/login');
   };
 
-  const navItems = user?.role === 'ADMIN' ? adminNavItems : operatorNavItems;
+  const navItems = user?.role === 'ADMIN' ? adminNav : operatorNav;
+
+  const toggleSection = (id: string) => {
+    setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
-      {/* Logo / brand — aligned with main header height */}
       <div className="h-16 flex items-center justify-between px-4 shrink-0">
         <div className="flex items-center gap-2.5">
-          {/* Logo avatar */}
           <div className="h-8 w-8 rounded-lg bg-[#4f46e5] flex items-center justify-center shrink-0 shadow-md">
             <Zap className="h-4 w-4 text-white" />
           </div>
@@ -75,46 +120,93 @@ export function AppLayout() {
         </Button>
       </div>
 
-      {/* Thin divider below logo */}
       <div className="mx-3 border-t border-white/10 shrink-0" />
 
-      {/* Nav items */}
-      <nav className="flex-1 p-3 pt-2 space-y-0.5 overflow-y-auto">
-        {navItems.map(({ to, icon: Icon, label, end }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            onClick={() => setSidebarOpen(false)}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 px-3 py-3 rounded-md text-sm font-medium transition-colors relative',
-                isActive
-                  ? 'bg-[#4f46e5] text-white shadow-sm'
-                  : 'text-indigo-200 hover:bg-white/10 hover:text-white'
-              )
-            }
-          >
-            {({ isActive }) => (
-              <>
-                {isActive && (
-                  <span className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r-full bg-white/70" />
-                )}
-                <Icon className="h-4 w-4 shrink-0" />
-                {label}
-              </>
-            )}
-          </NavLink>
-        ))}
+      <nav className="flex-1 p-3 pt-2 space-y-1 overflow-y-auto overscroll-contain">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const active = isNavItemActive(item, location.pathname);
 
-        {/* Reports section (admin only) */}
+          if (item.children) {
+            const isOpen = openSections[item.id] ?? false;
+            return (
+              <div key={item.id}>
+                <button
+                  type="button"
+                  onClick={() => toggleSection(item.id)}
+                  className={cn(
+                    'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors relative min-h-[44px]',
+                    active
+                      ? 'bg-[#4f46e5]/90 text-white'
+                      : 'text-indigo-200 hover:bg-white/10 hover:text-white'
+                  )}
+                >
+                  {active && (
+                    <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-white/80" />
+                  )}
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="flex-1 text-left">{item.label}</span>
+                  <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform duration-200', isOpen && 'rotate-180')} />
+                </button>
+                {isOpen && (
+                  <div className="mt-0.5 ml-4 pl-3 border-l border-white/15 space-y-0.5 pb-1">
+                    {item.children.map((child) => (
+                      <NavLink
+                        key={child.to}
+                        to={child.to}
+                        end={child.end}
+                        className={({ isActive }) =>
+                          cn(
+                            'flex items-center gap-2 px-3 py-2.5 rounded-md text-sm font-medium transition-colors min-h-[40px]',
+                            isActive
+                              ? 'bg-[#4f46e5] text-white shadow-sm'
+                              : 'text-indigo-200 hover:bg-white/10 hover:text-white'
+                          )
+                        }
+                      >
+                        {child.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          return (
+            <NavLink
+              key={item.id}
+              to={item.to!}
+              end={item.end}
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors relative min-h-[44px]',
+                  isActive
+                    ? 'bg-[#4f46e5] text-white shadow-sm'
+                    : 'text-indigo-200 hover:bg-white/10 hover:text-white'
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-white/80" />
+                  )}
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{item.label}</span>
+                </>
+              )}
+            </NavLink>
+          );
+        })}
+
         {user?.role === 'ADMIN' && (
-          <div className="pt-2">
+          <div className="pt-1">
             <button
               type="button"
-              onClick={() => setReportsOpen((o) => !o)}
+              onClick={() => toggleSection('reports')}
               className={cn(
-                'w-full flex items-center gap-3 px-3 py-3 rounded-md text-sm font-medium transition-colors',
+                'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors min-h-[44px]',
                 location.pathname.startsWith('/reports')
                   ? 'bg-white/10 text-white'
                   : 'text-indigo-200 hover:bg-white/10 hover:text-white'
@@ -122,19 +214,18 @@ export function AppLayout() {
             >
               <FileBarChart className="h-4 w-4 shrink-0" />
               <span className="flex-1 text-left">Reports</span>
-              <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform', reportsOpen && 'rotate-180')} />
+              <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform duration-200', openSections.reports && 'rotate-180')} />
             </button>
-            {reportsOpen && (
-              <div className="mt-0.5 ml-3 pl-3 border-l border-white/10 space-y-0.5">
+            {openSections.reports && (
+              <div className="mt-0.5 ml-4 pl-3 border-l border-white/15 space-y-0.5 pb-1">
                 {adminReportItems.map(({ to, label, end }) => (
                   <NavLink
                     key={to}
                     to={to}
                     end={end}
-                    onClick={() => setSidebarOpen(false)}
                     className={({ isActive }) =>
                       cn(
-                        'flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-colors',
+                        'flex items-center gap-2 px-3 py-2.5 rounded-md text-sm font-medium transition-colors min-h-[40px]',
                         isActive
                           ? 'bg-[#4f46e5] text-white'
                           : 'text-indigo-200 hover:bg-white/10 hover:text-white'
@@ -150,18 +241,17 @@ export function AppLayout() {
         )}
       </nav>
 
-      {/* User card + logout */}
-      <div className="p-3 border-t border-white/10 shrink-0">
-        <div className="flex items-center gap-3 px-3 py-3 rounded-md bg-white/10 border border-white/10 mb-2">
-          <div className="h-8 w-8 rounded-full bg-[#4f46e5] flex items-center justify-center shrink-0">
+      <div className="p-3 border-t border-white/10 shrink-0 safe-area-pb">
+        <div className="flex items-center gap-3 px-3 py-3 rounded-lg bg-white/10 border border-white/10 mb-2">
+          <div className="h-9 w-9 rounded-full bg-[#4f46e5] flex items-center justify-center shrink-0">
             <User className="h-4 w-4 text-white" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">{user?.username}</p>
-            <div className="flex items-center gap-1.5 mt-0.5">
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <p className="text-xs text-indigo-300 capitalize">{user?.role?.toLowerCase()}</p>
               {user?.operatorType && (
-                <Badge variant={user.operatorType === 'CASH' ? 'success' : 'warning'} className="text-xs h-4 px-1">
+                <Badge variant={user.operatorType === 'CASH' ? 'success' : 'warning'} className="text-[10px] h-4 px-1.5">
                   {user.operatorType}
                 </Badge>
               )}
@@ -171,7 +261,7 @@ export function AppLayout() {
         <Button
           variant="ghost"
           size="sm"
-          className="w-full justify-start gap-2 text-[#f87171] hover:text-[#fca5a5] hover:bg-red-500/10 transition-colors"
+          className="w-full justify-start gap-2 text-[#f87171] hover:text-[#fca5a5] hover:bg-red-500/10 transition-colors min-h-[44px]"
           onClick={handleLogout}
         >
           <LogOut className="h-4 w-4" /> Logout
@@ -181,40 +271,31 @@ export function AppLayout() {
   );
 
   return (
-    <div className="flex flex-1 h-screen overflow-hidden bg-background" style={{ width: '100%', margin: 0, padding: 0 }}>
-      {/* Desktop sidebar — dark indigo, sits flush against header */}
-      <aside className="hidden lg:flex w-60 flex-col shrink-0 bg-[#1e1b4b] border-r border-[#e5e3fb]">
+    <div className="flex flex-1 h-[100dvh] overflow-hidden bg-background">
+      <aside className="hidden lg:flex w-64 flex-col shrink-0 bg-[#1e1b4b] border-r border-[#e5e3fb]">
         <SidebarContent />
       </aside>
 
-      {/* Mobile sidebar overlay */}
       <div className={cn(
-        "fixed inset-0 z-50 lg:hidden transition-opacity duration-300",
-        sidebarOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        'fixed inset-0 z-50 lg:hidden transition-opacity duration-300',
+        sidebarOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
       )}>
-        <div 
-          className="absolute inset-0 bg-black/50 transition-opacity" 
-          onClick={() => setSidebarOpen(false)} 
-        />
+        <div className="absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
         <aside className={cn(
-          "absolute left-0 top-0 h-full w-64 flex flex-col bg-[#1e1b4b] border-r border-[#e5e3fb] z-10 transition-transform duration-300 ease-out",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          'absolute left-0 top-0 h-full w-[min(280px,85vw)] flex flex-col bg-[#1e1b4b] border-r border-[#e5e3fb] z-10 transition-transform duration-300 ease-out shadow-xl',
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}>
           <SidebarContent />
         </aside>
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header — taller, more breathing room */}
-        <header className="h-16 flex items-center gap-3 px-5 border-b border-[#e5e3fb] bg-white shrink-0">
-          <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <header className="h-14 sm:h-16 flex items-center gap-3 px-4 sm:px-5 border-b border-[#e5e3fb] bg-white shrink-0">
+          <Button variant="ghost" size="icon" className="lg:hidden shrink-0" onClick={() => setSidebarOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="text-sm font-semibold lg:hidden text-primary">Software</span>
+          <span className="text-sm font-semibold lg:hidden text-primary truncate">Software</span>
           <div className="flex-1" />
-          
-          {/* Desktop User Menu */}
           <div className="hidden sm:flex items-center gap-3">
             {user?.operatorType && (
               <>
@@ -226,14 +307,12 @@ export function AppLayout() {
             )}
             <UserMenu variant="default" />
           </div>
-
-          {/* Mobile User Menu */}
           <div className="sm:hidden">
             <UserMenu variant="compact" />
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-5 lg:p-7">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-5 lg:p-7">
           <Outlet />
         </main>
       </div>

@@ -48,13 +48,24 @@ export interface Category {
   brand?: Brand;
 }
 
+export interface ProductImage {
+  id: string;
+  productId: string;
+  url: string;
+  sortOrder: number;
+}
+
 export interface Product {
   id: string;
   modelName: string;
   imageUrl?: string | null;
+  images?: ProductImage[];
   mrp: number | string;
-  nlc: number | string;
+  cashPrice: number | string;
+  creditPrice: number | string;
+  purchasePrice?: number | string | null;
   availableQty: number;
+  isNewArrival?: boolean;
   brandId: string;
   brand?: Brand;
   categoryId: string;
@@ -76,9 +87,12 @@ export interface Order {
   customerName?: string | null;
   storeId: string;
   store?: Store;
+  userId?: string;
+  user?: { id: string; username: string; operatorType?: OperatorType | null };
   totalAmount: number | string;
   createdAt: string;
   orderItems?: OrderItem[];
+  itemCount?: number;
 }
 
 export interface PaymentMethod {
@@ -93,6 +107,8 @@ export interface Receipt {
   receiptNumber: string;
   storeId: string;
   store?: Store;
+  userId?: string;
+  user?: { id: string; username: string; operatorType?: OperatorType | null };
   paymentMode: PaymentMode;
   paymentMethodId?: string | null;
   paymentMethod?: PaymentMethod | null;
@@ -162,8 +178,12 @@ export interface PersonalStats {
   ordersToday: number;
   receiptsToday: number;
   salesToday: number;
+  totalBillsGenerated: number;
+  totalReceiptsGenerated: number;
+  totalSales: number;
+  totalCollected: number;
   recentOrders: Order[];
-  recentActivity: Array<{ action: LogAction; createdAt: string; meta?: Record<string, unknown> | null }>;
+  weeklyTrends: WeeklyTrendDay[];
 }
 
 export interface WeeklyTrendDay {

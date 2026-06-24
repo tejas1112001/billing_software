@@ -49,13 +49,25 @@ export interface Category {
   updatedAt: string;
 }
 
+export interface ProductImage {
+  id: string;
+  productId: string;
+  url: string;
+  sortOrder: number;
+}
+
 export interface Product {
   id: string;
   modelName: string;
   imageUrl?: string | null;
+  images?: ProductImage[];
   mrp: string | number;
-  nlc: string | number;
+  nlc?: string | number;  // Kept for backward compatibility
+  cashPrice: string | number;
+  creditPrice: string | number;
+  purchasePrice?: string | number | null;
   availableQty: number;
+  isNewArrival?: boolean;
   brandId: string;
   brand?: Brand;
   categoryId: string;

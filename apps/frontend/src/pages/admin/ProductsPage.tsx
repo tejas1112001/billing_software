@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Pencil, Trash2, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -10,7 +10,7 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { DataTable, ColumnDef } from '@/components/common/DataTable';
 import { Pagination } from '@/components/common/Pagination';
 import { SearchInput } from '@/components/common/SearchInput';
-import { ImageUpload } from '@/components/common/ImageUpload';
+import { MultiImageUpload, type PendingImage } from '@/components/common/MultiImageUpload';
 import { ImageThumbnail } from '@/components/common/ImageThumbnail';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { Button } from '@/components/ui/button';
@@ -32,8 +32,11 @@ const schema = z.object({
   brandId: z.string().min(1, 'Required'),
   categoryId: z.string().min(1, 'Required'),
   mrp: z.coerce.number().positive('MRP must be positive'),
-  nlc: z.coerce.number().positive('NLC must be positive'),
+  cashPrice: z.coerce.number().positive('Cash Price must be positive'),
+  creditPrice: z.coerce.number().positive('Credit Price must be positive'),
+  purchasePrice: z.coerce.number().positive('Purchase Price must be positive').optional().or(z.literal(0)),
   availableQty: z.coerce.number().int().min(0, 'Cannot be negative'),
+  isNewArrival: z.boolean().optional(),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -45,8 +48,8 @@ export default function ProductsPage() {
   const [editItem, setEditItem] = useState<Product | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const pendingImageFile = useRef<File | null>(null);
-  const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
+  const [productImages, setProductImages] = useState<PendingImage[]>([]);
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   const { data, isLoading } = useQuery({
@@ -74,7 +77,8 @@ export default function ProductsPage() {
   });
 
   const createMut = useMutation({
-    mutationFn: (d: FormData & { imageUrl?: string | null }) => productService.create(d),
+    mutationFn: (d: FormData & { imageUrl?: string | null; images?: string[]; thumbnailUrl?: string | null }) =>
+      productService.create(d),
     onSuccess: () => {
       toast.success('Product created');
       qc.invalidateQueries({ queryKey: ['products'] });
@@ -84,7 +88,7 @@ export default function ProductsPage() {
   });
 
   const updateMut = useMutation({
-    mutationFn: (d: FormData & { imageUrl?: string | null }) =>
+    mutationFn: (d: FormData & { imageUrl?: string | null; images?: string[]; thumbnailUrl?: string | null }) =>
       productService.update(editItem!.id, d),
     onSuccess: () => {
       toast.success('Product updated');
@@ -110,23 +114,47 @@ export default function ProductsPage() {
 
   const openCreate = () => {
     setEditItem(null);
-    pendingImageFile.current = null;
-    setCurrentImageUrl(null);
-    resetForm({ modelName: '', brandId: '', categoryId: '', mrp: 0, nlc: 0, availableQty: 0 });
+    setProductImages([]);
+    setThumbnailUrl(null);
+    resetForm({ 
+      modelName: '', 
+      brandId: '', 
+      categoryId: '', 
+      mrp: 0, 
+      cashPrice: 0, 
+      creditPrice: 0, 
+      purchasePrice: 0,
+      availableQty: 0,
+      isNewArrival: false,
+    });
     setDialogOpen(true);
   };
 
   const openEdit = (p: Product) => {
     setEditItem(p);
-    pendingImageFile.current = null;
-    setCurrentImageUrl(p.imageUrl ?? null);
+    const existingImages =
+      p.images && p.images.length > 0
+        ? p.images.map((img) => ({
+            id: img.id,
+            url: img.url,
+            previewUrl: img.url,
+            isExisting: true,
+          }))
+        : p.imageUrl
+          ? [{ id: 'legacy', url: p.imageUrl, previewUrl: p.imageUrl, isExisting: true }]
+          : [];
+    setProductImages(existingImages);
+    setThumbnailUrl(p.imageUrl ?? existingImages[0]?.url ?? null);
     resetForm({
       modelName: p.modelName,
       brandId: p.brandId,
       categoryId: p.categoryId,
       mrp: Number(p.mrp),
-      nlc: Number(p.nlc),
+      cashPrice: Number(p.cashPrice),
+      creditPrice: Number(p.creditPrice),
+      purchasePrice: p.purchasePrice ? Number(p.purchasePrice) : 0,
       availableQty: p.availableQty,
+      isNewArrival: p.isNewArrival || false,
     });
     setDialogOpen(true);
   };
@@ -134,20 +162,39 @@ export default function ProductsPage() {
   const closeDialog = () => {
     setDialogOpen(false);
     setEditItem(null);
-    pendingImageFile.current = null;
-    setCurrentImageUrl(null);
+    setProductImages([]);
+    setThumbnailUrl(null);
   };
 
   const onSubmit = async (d: FormData) => {
     try {
-      let imageUrl: string | null = currentImageUrl;
+      setIsUploading(true);
+      const uploadedUrls: string[] = [];
 
-      if (pendingImageFile.current) {
-        setIsUploading(true);
-        imageUrl = await uploadImage(pendingImageFile.current);
+      for (const img of productImages) {
+        if (img.isExisting) {
+          uploadedUrls.push(img.url);
+        } else if (img.file) {
+          uploadedUrls.push(await uploadImage(img.file));
+        }
       }
 
-      const payload = { ...d, imageUrl };
+      let resolvedThumbnail = uploadedUrls[0] ?? null;
+      if (thumbnailUrl) {
+        const thumbIndex = productImages.findIndex(
+          (img) => img.url === thumbnailUrl || img.previewUrl === thumbnailUrl
+        );
+        if (thumbIndex >= 0) {
+          resolvedThumbnail = uploadedUrls[thumbIndex] ?? resolvedThumbnail;
+        }
+      }
+
+      const payload = {
+        ...d,
+        imageUrl: resolvedThumbnail,
+        images: uploadedUrls,
+        thumbnailUrl: resolvedThumbnail,
+      };
 
       if (editItem) {
         updateMut.mutate(payload);
@@ -167,11 +214,25 @@ export default function ProductsPage() {
       header: 'Image',
       cell: (r) => <ImageThumbnail src={r.imageUrl} alt={r.modelName} />,
     },
-    { key: 'modelName', header: 'Model' },
+    { 
+      key: 'modelName', 
+      header: 'Model',
+      cell: (r) => (
+        <div className="flex items-center gap-2">
+          <span>{r.modelName}</span>
+          {r.isNewArrival && (
+            <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4 bg-gradient-to-r from-pink-500 to-purple-500">
+              NEW
+            </Badge>
+          )}
+        </div>
+      ),
+    },
     { key: 'brand', header: 'Brand', cell: (r) => r.brand?.name || '-' },
     { key: 'category', header: 'Category', cell: (r) => r.category?.name || '-' },
     { key: 'mrp', header: 'MRP', cell: (r) => formatCurrency(r.mrp) },
-    { key: 'nlc', header: 'NLC', cell: (r) => formatCurrency(r.nlc) },
+    { key: 'cashPrice', header: 'Cash Price', cell: (r) => formatCurrency(r.cashPrice) },
+    { key: 'creditPrice', header: 'Credit Price', cell: (r) => formatCurrency(r.creditPrice) },
     {
       key: 'availableQty',
       header: 'Qty',
@@ -304,34 +365,58 @@ export default function ProductsPage() {
               </Select>
             </div>
             <div>
-              <Label className="text-xs sm:text-sm">Product Image</Label>
+              <Label className="text-xs sm:text-sm">Product Images</Label>
+              <p className="text-[10px] text-muted-foreground mb-1">
+                First image is the default thumbnail. Tap the star to change it.
+              </p>
               <div className="mt-1">
-                <ImageUpload
-                  value={currentImageUrl}
+                <MultiImageUpload
+                  images={productImages}
+                  thumbnailUrl={thumbnailUrl}
                   disabled={isUploading || isSubmitting}
-                  onChange={(file, previewUrl) => {
-                    pendingImageFile.current = file;
-                    if (!file) {
-                      setCurrentImageUrl(null);
-                    } else if (previewUrl) {
-                      setCurrentImageUrl(previewUrl);
-                    }
+                  onChange={(images, thumb) => {
+                    setProductImages(images);
+                    setThumbnailUrl(thumb);
                   }}
                 />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
                 <Label className="text-xs sm:text-sm">MRP</Label>
                 <Input type="number" step="0.01" {...register('mrp')} className="h-8 sm:h-9 mt-1" />
+                {errors.mrp && <p className="text-xs text-destructive">{errors.mrp.message}</p>}
               </div>
               <div>
-                <Label className="text-xs sm:text-sm">NLC</Label>
-                <Input type="number" step="0.01" {...register('nlc')} className="h-8 sm:h-9 mt-1" />
+                <Label className="text-xs sm:text-sm">Cash Price</Label>
+                <Input type="number" step="0.01" {...register('cashPrice')} className="h-8 sm:h-9 mt-1" />
+                {errors.cashPrice && <p className="text-xs text-destructive">{errors.cashPrice.message}</p>}
               </div>
               <div>
-                <Label className="text-xs sm:text-sm">Qty</Label>
+                <Label className="text-xs sm:text-sm">Credit Price</Label>
+                <Input type="number" step="0.01" {...register('creditPrice')} className="h-8 sm:h-9 mt-1" />
+                {errors.creditPrice && <p className="text-xs text-destructive">{errors.creditPrice.message}</p>}
+              </div>
+              <div>
+                <Label className="text-xs sm:text-sm">Purchase Price (Optional)</Label>
+                <Input type="number" step="0.01" {...register('purchasePrice')} className="h-8 sm:h-9 mt-1" placeholder="0.00" />
+                {errors.purchasePrice && <p className="text-xs text-destructive">{errors.purchasePrice.message}</p>}
+              </div>
+              <div>
+                <Label className="text-xs sm:text-sm">Quantity</Label>
                 <Input type="number" {...register('availableQty')} className="h-8 sm:h-9 mt-1" />
+                {errors.availableQty && <p className="text-xs text-destructive">{errors.availableQty.message}</p>}
+              </div>
+              <div className="flex items-center space-x-2 pt-6">
+                <input
+                  type="checkbox"
+                  id="isNewArrival"
+                  {...register('isNewArrival')}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <Label htmlFor="isNewArrival" className="text-xs sm:text-sm cursor-pointer">
+                  Mark as New Arrival
+                </Label>
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">

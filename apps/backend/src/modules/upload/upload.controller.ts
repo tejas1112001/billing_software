@@ -1,4 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
+import path from 'path';
+import { optimizeUploadedImage } from '../../utils/imageOptimizer';
 
 export function getPublicBaseUrl(req: Request): string {
   if (process.env.BASE_URL) {
@@ -19,6 +21,9 @@ export async function uploadFile(req: Request, res: Response, next: NextFunction
       res.status(400).json({ error: 'No file uploaded. Select an image and try again.' });
       return;
     }
+
+    const filePath = path.join(req.file.destination, req.file.filename);
+    await optimizeUploadedImage(filePath);
 
     const baseUrl = getPublicBaseUrl(req);
     const fileUrl = `${baseUrl}/uploads/${req.file.filename}`;

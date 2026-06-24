@@ -82,6 +82,12 @@ export function BillPreviewModal({
             <p className="text-xs text-muted-foreground">Date</p>
             <p className="text-sm font-medium">{formatDate(order.createdAt)}</p>
           </div>
+          {order.user?.username && (
+            <div>
+              <p className="text-xs text-muted-foreground">Salesperson</p>
+              <p className="text-sm font-medium">{order.user.username}</p>
+            </div>
+          )}
           {order.customerName && (
             <div>
               <p className="text-xs text-muted-foreground">Customer</p>

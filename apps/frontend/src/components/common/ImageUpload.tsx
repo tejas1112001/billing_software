@@ -119,7 +119,7 @@ export function ImageUpload({ value, onChange, className, disabled = false }: Im
         <p className="text-sm text-muted-foreground text-center">
           Click or drag to upload
           <br />
-          <span className="text-xs">JPG, JPEG, PNG, WebP (max 5 MB)</span>
+          <span className="text-xs">JPG, JPEG, PNG, WebP (max 3 MB)</span>
         </p>
       </div>
 

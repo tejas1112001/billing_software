@@ -7,7 +7,18 @@ const COOKIE_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export async function loginController(req: Request, res: Response, next: NextFunction) {
   try {
-    const body = LoginSchema.parse(req.body);
+    // Validate request body
+    const validation = LoginSchema.safeParse(req.body);
+    
+    if (!validation.success) {
+      // Format validation errors for better frontend display
+      const firstError = validation.error.errors[0];
+      const errorMessage = firstError.message;
+      res.status(422).json({ error: errorMessage });
+      return;
+    }
+
+    const body = validation.data;
     const result = await authService.login(body.username, body.password);
 
     res.cookie(REFRESH_TOKEN_COOKIE, result.refreshToken, {

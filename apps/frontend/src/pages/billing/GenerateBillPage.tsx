@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ShoppingCart, Plus, Minus, Trash2,
-  ArrowLeft, ArrowUpDown, Filter, Package,
+  ArrowLeft, ArrowUpDown, Filter, Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -17,124 +17,46 @@ import { SearchInput } from '@/components/common/SearchInput';
 import { PageHeader } from '@/components/common/PageHeader';
 import { StoreCombobox } from '@/components/common/StoreCombobox';
 import { BillPreviewModal } from '@/components/common/BillPreviewModal';
+import { ProductImageCarousel, getProductImages } from '@/components/common/ProductImageCarousel';
+import { resolveImageUrl } from '@/utils/imageUrl';
 import { brandService } from '@/services/brandService';
 import { categoryService } from '@/services/categoryService';
 import { productService } from '@/services/productService';
 import { orderService } from '@/services/orderService';
 import { api } from '@/services/api';
 import { useCart } from '@/hooks/useCart';
+import { useAuthStore } from '@/stores/authStore';
 import { formatCurrency } from '@/utils/formatCurrency';
 import type { Store, Brand, Category, Product, Order } from '@/types';
 
-// ── Product Detail Sheet ───────────────────────────────────────────────────
-function ProductDetailSheet({
-  product,
-  open,
-  onClose,
-  inCart,
-  onAdd,
-  onUpdateQty,
-}: {
-  product: Product | null;
-  open: boolean;
-  onClose: () => void;
-  inCart: { quantity: number } | undefined;
-  onAdd: () => void;
-  onUpdateQty: (qty: number) => void;
-}) {
-  if (!product) return null;
-  return (
-    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="h-auto max-h-[85vh]">
-        <SheetHeader className="pb-3 border-b">
-          <SheetTitle className="text-left text-base">{product.modelName}</SheetTitle>
-        </SheetHeader>
-        <div className="pt-4 space-y-4 overflow-y-auto">
-          {product.imageUrl ? (
-            <img
-              src={product.imageUrl}
-              alt={product.modelName}
-              className="w-full h-52 object-contain rounded-lg bg-muted"
-            />
-          ) : (
-            <div className="w-full h-48 bg-muted rounded-lg flex items-center justify-center">
-              <Package className="h-16 w-16 text-muted-foreground" />
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-muted/50 rounded-lg p-3">
-              <p className="text-xs text-muted-foreground">MRP</p>
-              <p className="font-semibold line-through text-muted-foreground">{formatCurrency(product.mrp)}</p>
-            </div>
-            <div className="bg-primary/10 rounded-lg p-3">
-              <p className="text-xs text-primary">Selling Price</p>
-              <p className="font-bold text-primary text-lg">{formatCurrency(product.nlc)}</p>
-            </div>
-            <div className="bg-muted/50 rounded-lg p-3">
-              <p className="text-xs text-muted-foreground">Brand</p>
-              <p className="font-medium text-sm">{product.brand?.name ?? '—'}</p>
-            </div>
-            <div className="bg-muted/50 rounded-lg p-3">
-              <p className="text-xs text-muted-foreground">In Stock</p>
-              <p className={`font-bold text-sm ${product.availableQty < 5 ? 'text-destructive' : 'text-green-600'}`}>
-                {product.availableQty} units
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-2 pb-4">
-            {inCart ? (
-              <div className="flex items-center gap-4 w-full">
-                <Button
-                  size="icon"
-                  variant="outline"
-                  className="h-11 w-11 rounded-full shrink-0"
-                  onClick={() => onUpdateQty(inCart.quantity - 1)}
-                >
-                  <Minus className="h-5 w-5" />
-                </Button>
-                <span className="flex-1 text-center text-2xl font-bold">{inCart.quantity}</span>
-                <Button
-                  size="icon"
-                  variant="outline"
-                  className="h-11 w-11 rounded-full shrink-0"
-                  onClick={() => onUpdateQty(inCart.quantity + 1)}
-                  disabled={inCart.quantity >= product.availableQty}
-                >
-                  <Plus className="h-5 w-5" />
-                </Button>
-              </div>
-            ) : (
-              <Button
-                className="w-full h-11 text-base"
-                disabled={product.availableQty === 0}
-                onClick={onAdd}
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                Add to Cart
-              </Button>
-            )}
-          </div>
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
+function buildCartPayload(product: Product) {
+  return {
+    productId: product.id,
+    modelName: product.modelName,
+    imageUrl: resolveImageUrl(product.imageUrl),
+    mrp: Number(product.mrp),
+    cashPrice: Number(product.cashPrice),
+    creditPrice: Number(product.creditPrice),
+    availableQty: product.availableQty,
+  };
 }
 
-// ── Cart Sheet (mobile) ────────────────────────────────────────────────────
 function CartSheet({
   items,
   total,
   onUpdateQty,
   onPlaceOrder,
   isPending,
+  operatorType,
+  hasStore,
 }: {
   items: ReturnType<typeof useCart>['items'];
   total: number;
   onUpdateQty: (productId: string, qty: number) => void;
   onPlaceOrder: () => void;
   isPending: boolean;
+  operatorType: 'CASH' | 'CREDIT' | null | undefined;
+  hasStore: boolean;
 }) {
   return (
     <Sheet>
@@ -167,15 +89,15 @@ function CartSheet({
             items.map((item) => (
               <div key={item.productId} className="flex items-center gap-3 py-2 border-b last:border-0">
                 {item.imageUrl ? (
-                  <img src={item.imageUrl} alt={item.modelName} className="h-12 w-12 rounded object-cover shrink-0" />
+                  <img src={item.imageUrl} alt={item.modelName} className="h-12 w-12 rounded object-cover shrink-0" loading="lazy" />
                 ) : (
-                  <div className="h-12 w-12 bg-muted rounded shrink-0 flex items-center justify-center">
-                    <Package className="h-5 w-5 text-muted-foreground" />
-                  </div>
+                  <div className="h-12 w-12 bg-muted rounded shrink-0" />
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{item.modelName}</p>
-                  <p className="text-xs text-muted-foreground">{formatCurrency(item.nlc)} × {item.quantity}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatCurrency(operatorType === 'CASH' ? item.cashPrice : item.creditPrice)} × {item.quantity}
+                  </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => onUpdateQty(item.productId, item.quantity - 1)}><Minus className="h-3 w-3" /></Button>
@@ -193,8 +115,8 @@ function CartSheet({
               <span>Total</span>
               <span className="text-primary">{formatCurrency(total)}</span>
             </div>
-            <Button className="w-full h-12 text-base" onClick={onPlaceOrder} disabled={isPending}>
-              {isPending ? 'Placing Order...' : 'Place Order'}
+            <Button className="w-full h-12 text-base" onClick={onPlaceOrder} disabled={isPending || !hasStore || items.length === 0}>
+              {isPending ? 'Placing Order...' : !hasStore ? 'Select Store First' : 'Place Order'}
             </Button>
           </div>
         )}
@@ -203,8 +125,9 @@ function CartSheet({
   );
 }
 
-// ── Main Page ──────────────────────────────────────────────────────────────
 export default function GenerateBillPage() {
+  const qc = useQueryClient();
+  const { user } = useAuthStore();
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [selectedBrand, setSelectedBrand] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -212,8 +135,13 @@ export default function GenerateBillPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
   const [billModalOpen, setBillModalOpen] = useState(false);
-  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const { items, addItem, updateQty, clearCart, total } = useCart();
+
+  const getProductPrice = (product: Product): number => {
+    if (user?.operatorType === 'CASH') return Number(product.cashPrice);
+    if (user?.operatorType === 'CREDIT') return Number(product.creditPrice);
+    return Number(product.cashPrice || 0);
+  };
 
   const { data: brands } = useQuery<Brand[]>({
     queryKey: ['brands-all'],
@@ -229,6 +157,7 @@ export default function GenerateBillPage() {
     queryKey: ['products', selectedStore?.id, selectedBrand, selectedCategory, search, sortOrder],
     queryFn: () => productService.list({
       pageSize: 50,
+      inStock: true,
       brandId: selectedBrand && selectedBrand !== '_all' ? selectedBrand : undefined,
       categoryId: selectedCategory && selectedCategory !== '_all' ? selectedCategory : undefined,
       search: search || undefined,
@@ -246,6 +175,7 @@ export default function GenerateBillPage() {
       setPlacedOrder(order);
       setBillModalOpen(true);
       clearCart();
+      qc.invalidateQueries({ queryKey: ['products'] });
     },
     onError: (e: unknown) => {
       const response = (e as { response?: { data?: { error?: string; details?: string } } })?.response?.data;
@@ -281,9 +211,8 @@ export default function GenerateBillPage() {
     setPlacedOrder(null);
   };
 
-  const products: Product[] = productsData?.data || [];
+  const products: Product[] = (productsData?.data ?? []).filter((p: Product) => p.availableQty > 0);
 
-  // ── Store selection step ──────────────────────────────────────────────────
   if (!selectedStore) {
     return (
       <div className="max-w-lg mx-auto px-2 py-4">
@@ -296,7 +225,6 @@ export default function GenerateBillPage() {
     );
   }
 
-  // ── Billing flow ──────────────────────────────────────────────────────────
   const FilterBar = () => (
     <div className="space-y-2">
       <SearchInput placeholder="Search products..." onChange={setSearch} className="w-full h-10" />
@@ -325,7 +253,6 @@ export default function GenerateBillPage() {
 
   return (
     <div className="pb-24 lg:pb-0">
-      {/* Header */}
       <div className="flex items-center gap-2 mb-3">
         <Button variant="ghost" size="icon" onClick={handleChangeStore} className="h-8 w-8 shrink-0">
           <ArrowLeft className="h-4 w-4" />
@@ -339,7 +266,6 @@ export default function GenerateBillPage() {
         </div>
       </div>
 
-      {/* Bill preview modal */}
       <BillPreviewModal
         order={placedOrder}
         open={billModalOpen}
@@ -349,9 +275,7 @@ export default function GenerateBillPage() {
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Left: products */}
         <div className="lg:col-span-2 space-y-3">
-          {/* Mobile: filter in sheet */}
           <div className="lg:hidden">
             <Sheet>
               <SheetTrigger asChild>
@@ -366,57 +290,106 @@ export default function GenerateBillPage() {
               </SheetContent>
             </Sheet>
           </div>
-          {/* Desktop: inline filters */}
           <div className="hidden lg:block">
             <FilterBar />
           </div>
 
           {loadingProducts ? (
-            <div className="grid grid-cols-2 gap-3">
-              {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-44 rounded-xl" />)}
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
+              {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-48 rounded-xl" />)}
             </div>
           ) : products.length === 0 ? (
-            <EmptyState title="No products found" />
+            <EmptyState title="No products in stock" description="Products with zero stock are hidden from billing." />
           ) : (
-            /* 2-column grid always on mobile */
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
               {products.map((product) => {
                 const inCart = items.find((i) => i.productId === product.id);
-                const outOfStock = product.availableQty === 0;
+                const productImages = getProductImages(product);
+                const sellingPrice = getProductPrice(product);
+                const stockLow = product.availableQty < 5;
+
                 return (
                   <Card
                     key={product.id}
-                    className={`overflow-hidden cursor-pointer active:scale-95 transition-transform ${outOfStock ? 'opacity-60' : ''}`}
-                    onClick={() => setDetailProduct(product)}
+                    className="overflow-hidden flex flex-col border shadow-sm hover:shadow-md transition-shadow rounded-xl"
                   >
-                    {/* Product image */}
                     <div className="relative aspect-square bg-muted">
-                      {product.imageUrl ? (
-                        <img src={product.imageUrl} alt={product.modelName} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Package className="h-10 w-10 text-muted-foreground" />
-                        </div>
+                      <ProductImageCarousel
+                        images={productImages}
+                        alt={product.modelName}
+                        className="h-full w-full"
+                        imageClassName="rounded-t-xl"
+                      />
+                      {product.isNewArrival && (
+                        <Badge className="absolute top-1.5 left-1.5 text-[9px] px-1.5 py-0 h-4 bg-gradient-to-r from-pink-500 to-purple-500 border-0 gap-0.5 z-30">
+                          <Sparkles className="h-2.5 w-2.5" />
+                          NEW
+                        </Badge>
                       )}
+                      <Badge
+                        variant={stockLow ? 'warning' : 'success'}
+                        className="absolute top-1.5 right-1.5 text-[9px] px-1.5 py-0 h-4 font-semibold tabular-nums z-30"
+                      >
+                        {product.availableQty} in stock
+                      </Badge>
                       {inCart && (
-                        <span className="absolute top-1.5 right-1.5 h-6 w-6 bg-primary text-primary-foreground rounded-full text-xs flex items-center justify-center font-bold shadow">
+                        <span className="absolute bottom-1.5 right-1.5 h-6 min-w-6 px-1 bg-primary text-primary-foreground rounded-full text-[10px] flex items-center justify-center font-bold shadow z-30">
                           {inCart.quantity}
                         </span>
                       )}
                     </div>
-                    <CardContent className="p-2.5 space-y-1">
-                      <p className="font-medium text-xs leading-tight line-clamp-2">{product.modelName}</p>
-                      <div className="flex items-end justify-between gap-1">
-                        <div>
-                          <p className="text-xs text-muted-foreground line-through leading-none">{formatCurrency(product.mrp)}</p>
-                          <p className="text-sm font-bold text-primary leading-tight">{formatCurrency(product.nlc)}</p>
+
+                    <CardContent className="p-2 sm:p-3 flex flex-col flex-1 gap-2">
+                      <h3 className="font-medium text-xs sm:text-sm leading-tight line-clamp-2 text-foreground">
+                        {product.modelName}
+                      </h3>
+
+                      <div className="rounded-lg bg-muted/40 px-2 py-1.5 space-y-0.5">
+                        <div className="flex items-baseline justify-between gap-1">
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-wide">MRP</span>
+                          <span className="text-[11px] text-muted-foreground line-through tabular-nums">
+                            {formatCurrency(product.mrp)}
+                          </span>
                         </div>
-                        <Badge
-                          variant={product.availableQty < 5 ? 'warning' : 'success'}
-                          className="text-xs shrink-0"
-                        >
-                          {outOfStock ? 'Out' : `${product.availableQty}`}
-                        </Badge>
+                        <div className="flex items-baseline justify-between gap-1">
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Selling</span>
+                          <span className="font-bold text-sm text-primary tabular-nums">
+                            {formatCurrency(sellingPrice)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-auto pt-0.5" onClick={(e) => e.stopPropagation()}>
+                        {inCart ? (
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              size="icon"
+                              variant="outline"
+                              className="h-8 w-8 shrink-0 rounded-lg"
+                              onClick={() => updateQty(product.id, inCart.quantity - 1)}
+                            >
+                              <Minus className="h-3.5 w-3.5" />
+                            </Button>
+                            <span className="flex-1 text-center text-sm font-bold tabular-nums">{inCart.quantity}</span>
+                            <Button
+                              size="icon"
+                              variant="outline"
+                              className="h-8 w-8 shrink-0 rounded-lg"
+                              onClick={() => updateQty(product.id, inCart.quantity + 1)}
+                              disabled={inCart.quantity >= product.availableQty}
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            className="w-full h-8 sm:h-9 text-xs font-semibold rounded-lg shadow-sm"
+                            onClick={() => addItem(buildCartPayload(product))}
+                          >
+                            <Plus className="h-3.5 w-3.5 mr-1" />
+                            Add
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -426,7 +399,6 @@ export default function GenerateBillPage() {
           )}
         </div>
 
-        {/* Desktop cart sidebar */}
         <div className="hidden lg:block">
           <Card className="sticky top-4">
             <div className="p-4 border-b flex items-center gap-2">
@@ -441,9 +413,14 @@ export default function GenerateBillPage() {
                   <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                     {items.map((item) => (
                       <div key={item.productId} className="flex items-center gap-2 text-sm">
+                        {item.imageUrl && (
+                          <img src={item.imageUrl} alt="" className="h-8 w-8 rounded object-cover shrink-0" loading="lazy" />
+                        )}
                         <div className="flex-1 min-w-0">
                           <p className="truncate font-medium text-xs">{item.modelName}</p>
-                          <p className="text-muted-foreground text-xs">{formatCurrency(item.nlc)} × {item.quantity}</p>
+                          <p className="text-muted-foreground text-xs">
+                            {formatCurrency(user?.operatorType === 'CASH' ? item.cashPrice : item.creditPrice)} × {item.quantity}
+                          </p>
                         </div>
                         <div className="flex items-center gap-0.5 shrink-0">
                           <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => updateQty(item.productId, item.quantity - 1)}><Minus className="h-3 w-3" /></Button>
@@ -459,7 +436,7 @@ export default function GenerateBillPage() {
                       <span>Total</span>
                       <span className="text-primary">{formatCurrency(total)}</span>
                     </div>
-                    <Button className="w-full h-10" onClick={() => orderMutation.mutate()} disabled={orderMutation.isPending}>
+                    <Button className="w-full h-10" onClick={() => orderMutation.mutate()} disabled={orderMutation.isPending || !selectedStore || items.length === 0}>
                       {orderMutation.isPending ? 'Placing...' : 'Place Order'}
                     </Button>
                   </div>
@@ -470,37 +447,14 @@ export default function GenerateBillPage() {
         </div>
       </div>
 
-      {/* Mobile FAB cart */}
       <CartSheet
         items={items}
         total={total}
         onUpdateQty={updateQty}
         onPlaceOrder={() => orderMutation.mutate()}
         isPending={orderMutation.isPending}
-      />
-
-      {/* Product detail bottom sheet */}
-      <ProductDetailSheet
-        product={detailProduct}
-        open={!!detailProduct}
-        onClose={() => setDetailProduct(null)}
-        inCart={detailProduct ? items.find((i) => i.productId === detailProduct.id) : undefined}
-        onAdd={() => {
-          if (!detailProduct) return;
-          addItem({
-            productId: detailProduct.id,
-            modelName: detailProduct.modelName,
-            imageUrl: detailProduct.imageUrl,
-            mrp: Number(detailProduct.mrp),
-            nlc: Number(detailProduct.nlc),
-            availableQty: detailProduct.availableQty,
-          });
-        }}
-        onUpdateQty={(qty) => {
-          if (!detailProduct) return;
-          updateQty(detailProduct.id, qty);
-          if (qty === 0) setDetailProduct(null);
-        }}
+        operatorType={user?.operatorType}
+        hasStore={!!selectedStore}
       />
     </div>
   );

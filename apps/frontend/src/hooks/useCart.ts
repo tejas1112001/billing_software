@@ -1,8 +1,17 @@
 import { useReducer } from 'react';
+import { useAuthStore } from '@/stores/authStore';
+
 export interface CartItem {
-  productId: string; modelName: string; imageUrl?: string | null;
-  mrp: number; nlc: number; quantity: number; availableQty: number;
+  productId: string; 
+  modelName: string; 
+  imageUrl?: string | null;
+  mrp: number; 
+  cashPrice: number;
+  creditPrice: number;
+  quantity: number; 
+  availableQty: number;
 }
+
 type CartAction =
   | { type: 'ADD_ITEM'; payload: Omit<CartItem, 'quantity'> }
   | { type: 'REMOVE_ITEM'; payload: { productId: string } }
@@ -13,12 +22,20 @@ function cartReducer(state: CartItem[], action: CartAction): CartItem[] {
   switch (action.type) {
     case 'ADD_ITEM': {
       const existing = state.find((i) => i.productId === action.payload.productId);
-      if (existing) return state.map((i) => i.productId === action.payload.productId ? { ...i, quantity: i.quantity + 1 } : i);
+      if (existing) {
+        const nextQty = Math.min(existing.quantity + 1, action.payload.availableQty);
+        return state.map((i) =>
+          i.productId === action.payload.productId ? { ...i, quantity: nextQty } : i
+        );
+      }
       return [...state, { ...action.payload, quantity: 1 }];
     }
     case 'UPDATE_QTY':
       if (action.payload.quantity <= 0) return state.filter((i) => i.productId !== action.payload.productId);
-      return state.map((i) => i.productId === action.payload.productId ? { ...i, quantity: action.payload.quantity } : i);
+      return state.map((i) => {
+        if (i.productId !== action.payload.productId) return i;
+        return { ...i, quantity: Math.min(action.payload.quantity, i.availableQty) };
+      });
     case 'REMOVE_ITEM': return state.filter((i) => i.productId !== action.payload.productId);
     case 'CLEAR_CART': return [];
     default: return state;
@@ -27,10 +44,18 @@ function cartReducer(state: CartItem[], action: CartAction): CartItem[] {
 
 export function useCart() {
   const [items, dispatch] = useReducer(cartReducer, []);
+  const { user } = useAuthStore();
+  
   const addItem = (p: Omit<CartItem, 'quantity'>) => dispatch({ type: 'ADD_ITEM', payload: p });
   const removeItem = (productId: string) => dispatch({ type: 'REMOVE_ITEM', payload: { productId } });
   const updateQty = (productId: string, quantity: number) => dispatch({ type: 'UPDATE_QTY', payload: { productId, quantity } });
   const clearCart = () => dispatch({ type: 'CLEAR_CART' });
-  const total = items.reduce((sum, i) => sum + i.nlc * i.quantity, 0);
+  
+  // Calculate total using appropriate price based on user type
+  const total = items.reduce((sum, i) => {
+    const price = user?.operatorType === 'CASH' ? i.cashPrice : i.creditPrice;
+    return sum + price * i.quantity;
+  }, 0);
+  
   return { items, addItem, removeItem, updateQty, clearCart, total };
 }

@@ -1,20 +1,21 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Download, FileSpreadsheet, Printer, Filter, ImageOff } from 'lucide-react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Filter, ImageOff, Edit2, Save, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { PageHeader } from '@/components/common/PageHeader';
 import { DataTable, ColumnDef } from '@/components/common/DataTable';
 import { Pagination } from '@/components/common/Pagination';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Input } from '@/components/ui/input';
 import { stockReportService } from '@/services/stockReportService';
 import { brandService } from '@/services/brandService';
 import { categoryService } from '@/services/categoryService';
+import { productService } from '@/services/productService';
 import { usePagination } from '@/hooks/usePagination';
+import { useAuthStore } from '@/stores/authStore';
 import { formatCurrency } from '@/utils/formatCurrency';
 import type { Product, Brand, Category } from '@/types';
 
@@ -26,9 +27,15 @@ const GROUP_BY_OPTIONS = [
 
 export default function StockReportPage() {
   const { page, pageSize, setPage, setPageSize, reset } = usePagination();
+  const { user } = useAuthStore();
+  const queryClient = useQueryClient();
   const [groupBy, setGroupBy] = useState('brand');
   const [brandId, setBrandId] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editQty, setEditQty] = useState<number>(0);
+
+  const isAdmin = user?.role === 'ADMIN';
 
   const { data: brands } = useQuery<Brand[]>({
     queryKey: ['brands-all'],
@@ -53,26 +60,35 @@ export default function StockReportPage() {
       }),
   });
 
-  const exportParams = {
-    groupBy,
-    brandId: brandId || undefined,
-    categoryId: categoryId || undefined,
+  const updateStockMutation = useMutation({
+    mutationFn: ({ id, availableQty }: { id: string; availableQty: number }) =>
+      productService.update(id, { availableQty }),
+    onSuccess: () => {
+      toast.success('Stock updated successfully');
+      queryClient.invalidateQueries({ queryKey: ['stock-reports'] });
+      setEditingId(null);
+    },
+    onError: () => {
+      toast.error('Failed to update stock');
+    },
+  });
+
+  const handleEditClick = (product: Product) => {
+    setEditingId(product.id);
+    setEditQty(product.availableQty);
   };
 
-  const handleExportPdf = async () => {
-    try {
-      await stockReportService.exportPdf(exportParams);
-    } catch {
-      toast.error('PDF export failed');
+  const handleSaveClick = (id: string) => {
+    if (editQty < 0) {
+      toast.error('Quantity cannot be negative');
+      return;
     }
+    updateStockMutation.mutate({ id, availableQty: editQty });
   };
 
-  const handleExportExcel = async () => {
-    try {
-      await stockReportService.exportExcel(exportParams);
-    } catch {
-      toast.error('Excel export failed');
-    }
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditQty(0);
   };
 
   const columns: ColumnDef<Product>[] = [
@@ -85,176 +101,125 @@ export default function StockReportPage() {
             <img
               src={r.imageUrl}
               alt={r.modelName}
-              className="h-10 w-10 object-cover rounded flex-shrink-0"
+              className="h-12 w-12 object-cover rounded flex-shrink-0"
               loading="lazy"
             />
           ) : (
             <div
-              className="h-10 w-10 rounded bg-muted flex items-center justify-center flex-shrink-0"
+              className="h-12 w-12 rounded bg-muted flex items-center justify-center flex-shrink-0"
               title="No image"
               aria-label="No image"
             >
-              <ImageOff className="h-4 w-4 text-muted-foreground" />
+              <ImageOff className="h-5 w-5 text-muted-foreground" />
             </div>
           )}
         </div>
       ),
     },
-    { key: 'modelName', header: 'Model Name' },
+    { 
+      key: 'modelName', 
+      header: 'Model Name',
+      cell: (r) => <div className="font-medium">{r.modelName}</div>
+    },
     {
       key: 'brand',
       header: 'Brand',
-      cell: (r) => r.brand?.name || '-',
+      cell: (r) => <div className="text-sm">{r.brand?.name || '-'}</div>,
     },
     {
       key: 'category',
       header: 'Category',
-      cell: (r) => r.category?.name || '-',
+      cell: (r) => <div className="text-sm">{r.category?.name || '-'}</div>,
     },
     {
       key: 'mrp',
       header: 'MRP',
-      cell: (r) => formatCurrency(r.mrp),
+      cell: (r) => <div className="text-sm font-medium">{formatCurrency(r.mrp)}</div>,
     },
     {
-      key: 'nlc',
-      header: 'NLC (Selling Price)',
-      cell: (r) => formatCurrency(r.nlc),
+      key: 'cashPrice',
+      header: 'Cash Price',
+      cell: (r) => <div className="text-sm text-green-600 font-medium">{formatCurrency(r.cashPrice)}</div>,
+    },
+    {
+      key: 'creditPrice',
+      header: 'Credit Price',
+      cell: (r) => <div className="text-sm text-blue-600 font-medium">{formatCurrency(r.creditPrice)}</div>,
     },
     {
       key: 'availableQty',
       header: 'Available Qty',
-      cell: (r) => (
-        <Badge variant={r.availableQty < 5 ? 'warning' : 'success'}>
-          {r.availableQty}
-        </Badge>
-      ),
+      cell: (r) => {
+        const isEditing = editingId === r.id;
+        
+        if (isEditing) {
+          return (
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                value={editQty}
+                onChange={(e) => setEditQty(parseInt(e.target.value) || 0)}
+                className="w-20 h-8"
+                min={0}
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => handleSaveClick(r.id)}
+                disabled={updateStockMutation.isPending}
+                className="h-8 w-8 p-0"
+              >
+                <Save className="h-4 w-4 text-green-600" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleCancelEdit}
+                disabled={updateStockMutation.isPending}
+                className="h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4 text-red-600" />
+              </Button>
+            </div>
+          );
+        }
+        
+        return (
+          <div className="flex items-center gap-2">
+            <Badge variant={r.availableQty < 5 ? 'warning' : 'success'} className="text-sm px-3 py-1">
+              {r.availableQty}
+            </Badge>
+            {isAdmin && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => handleEditClick(r)}
+                className="h-8 w-8 p-0"
+              >
+                <Edit2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
   return (
-    <div>
-      <PageHeader
-        title="Stock Report"
-        description="View inventory across multiple dimensions"
-        actions={
-          <div className="hidden sm:flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleExportPdf}>
-              <Download className="h-4 w-4 mr-1" /> PDF
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleExportExcel}>
-              <FileSpreadsheet className="h-4 w-4 mr-1" /> Excel
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => window.print()}>
-              <Printer className="h-4 w-4 mr-1" /> Print
-            </Button>
+    <div className="space-y-3">
+      {/* Compact Header with Inline Filters - Desktop */}
+      <div className="bg-white border-b px-6 py-4 hidden lg:block">
+        <div className="flex items-center justify-between gap-6">
+          {/* Title Section */}
+          <div className="flex-shrink-0">
+            <h1 className="text-xl font-bold text-gray-900">Stock Report</h1>
+            <p className="text-xs text-gray-600">View and manage inventory</p>
           </div>
-        }
-      />
-
-      {/* Mobile Filters - Sheet/Drawer */}
-      <div className="mb-3 lg:hidden">
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="sm" className="w-full">
-              <Filter className="h-4 w-4 mr-2" />
-              Filters & Export
-            </Button>
-          </SheetTrigger>
-          <SheetContent>
-            <SheetHeader>
-              <SheetTitle>Filter & Export</SheetTitle>
-            </SheetHeader>
-            <div className="space-y-3">
-              <div>
-                <Label className="text-xs mb-1.5 block font-medium">Group By</Label>
-                <Select
-                  value={groupBy}
-                  onValueChange={(v) => {
-                    setGroupBy(v);
-                    reset();
-                  }}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {GROUP_BY_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label className="text-xs mb-1.5 block font-medium">Brand</Label>
-                <Select
-                  value={brandId || '_all'}
-                  onValueChange={(v) => {
-                    setBrandId(v === '_all' ? '' : v);
-                    setCategoryId('');
-                    reset();
-                  }}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="All Brands" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_all">All Brands</SelectItem>
-                    {brands?.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label className="text-xs mb-1.5 block font-medium">Category</Label>
-                <Select
-                  value={categoryId || '_all'}
-                  onValueChange={(v) => {
-                    setCategoryId(v === '_all' ? '' : v);
-                    reset();
-                  }}
-                  disabled={!brandId}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="All Categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_all">All Categories</SelectItem>
-                    {categories?.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="pt-2 space-y-2">
-                <Button variant="outline" size="sm" onClick={handleExportPdf} className="w-full">
-                  <Download className="h-4 w-4 mr-1" /> Export PDF
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleExportExcel} className="w-full">
-                  <FileSpreadsheet className="h-4 w-4 mr-1" /> Export Excel
-                </Button>
-              </div>
-            </div>
-          </SheetContent>
-        </Sheet>
-      </div>
-
-      {/* Desktop Filters - Inline */}
-      <Card className="mb-3 hidden lg:block">
-        <CardContent className="p-3 sm:p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2 sm:gap-3">
-            <div>
-              <Label className="text-xs mb-1.5 block font-medium">Group By</Label>
+          
+          {/* Filters in same row */}
+          <div className="flex items-center gap-4 flex-1 max-w-4xl">
+            <div className="flex-1 min-w-[180px]">
+              <Label className="text-xs mb-1 block font-medium text-gray-700">Group By</Label>
               <Select
                 value={groupBy}
                 onValueChange={(v) => {
@@ -275,8 +240,8 @@ export default function StockReportPage() {
               </Select>
             </div>
 
-            <div>
-              <Label className="text-xs mb-1.5 block font-medium">Brand</Label>
+            <div className="flex-1 min-w-[180px]">
+              <Label className="text-xs mb-1 block font-medium text-gray-700">Brand</Label>
               <Select
                 value={brandId || '_all'}
                 onValueChange={(v) => {
@@ -299,8 +264,8 @@ export default function StockReportPage() {
               </Select>
             </div>
 
-            <div>
-              <Label className="text-xs mb-1.5 block font-medium">Category</Label>
+            <div className="flex-1 min-w-[180px]">
+              <Label className="text-xs mb-1 block font-medium text-gray-700">Category</Label>
               <Select
                 value={categoryId || '_all'}
                 onValueChange={(v) => {
@@ -323,25 +288,127 @@ export default function StockReportPage() {
               </Select>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <DataTable
-        columns={columns as unknown as ColumnDef<Record<string, unknown>>[]}
-        data={(data?.data || []) as Record<string, unknown>[]}
-        isLoading={isLoading}
-        getRowKey={(r) => (r as unknown as Product).id}
-      />
-      {data && (
-        <Pagination
-          page={page}
-          pageSize={pageSize}
-          total={data.total}
-          totalPages={data.totalPages}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
+      {/* Mobile Header and Filters */}
+      <div className="lg:hidden">
+        <div className="bg-white border-b px-4 py-3">
+          <h1 className="text-xl font-bold text-gray-900">Stock Report</h1>
+          <p className="text-xs text-gray-600 mt-0.5">View and manage inventory</p>
+        </div>
+        
+        <div className="px-4 mt-3">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm" className="w-full">
+                <Filter className="h-4 w-4 mr-2" />
+                Filters
+              </Button>
+            </SheetTrigger>
+            <SheetContent>
+              <SheetHeader>
+                <SheetTitle>Filters</SheetTitle>
+              </SheetHeader>
+              <div className="space-y-4 mt-4">
+                <div>
+                  <Label className="text-sm mb-2 block font-medium">Group By</Label>
+                  <Select
+                    value={groupBy}
+                    onValueChange={(v) => {
+                      setGroupBy(v);
+                      reset();
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {GROUP_BY_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-sm mb-2 block font-medium">Brand</Label>
+                  <Select
+                    value={brandId || '_all'}
+                    onValueChange={(v) => {
+                      setBrandId(v === '_all' ? '' : v);
+                      setCategoryId('');
+                      reset();
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="All Brands" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_all">All Brands</SelectItem>
+                      {brands?.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-sm mb-2 block font-medium">Category</Label>
+                  <Select
+                    value={categoryId || '_all'}
+                    onValueChange={(v) => {
+                      setCategoryId(v === '_all' ? '' : v);
+                      reset();
+                    }}
+                    disabled={!brandId}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="All Categories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_all">All Categories</SelectItem>
+                      {categories?.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </div>
+
+      <div className="px-4">
+        <DataTable
+          columns={columns as unknown as ColumnDef<Record<string, unknown>>[]}
+          data={(data?.data || []) as Record<string, unknown>[]}
+          isLoading={isLoading}
+          getRowKey={(r) => (r as unknown as Product).id}
         />
-      )}
+        {data && data.total > 0 && (
+          <div className="mt-4">
+            <Pagination
+              page={page}
+              pageSize={pageSize}
+              total={data.total}
+              totalPages={data.totalPages}
+              onPageChange={setPage}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setPage(1);
+              }}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

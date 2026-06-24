@@ -127,34 +127,117 @@ export async function getPersonalStats(req: Request, res: Response, next: NextFu
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
-    const [ordersToday, receiptsToday, totalOrdersAmount, recentOrders, recentLogs] = await Promise.all([
+    const [
+      ordersToday, receiptsToday, totalOrdersAmount,
+      totalBills, totalReceipts, totalSalesAgg, totalCollectedAgg,
+      recentOrders,
+    ] = await Promise.all([
       prisma.order.count({ where: { userId, createdAt: { gte: startOfDay, lte: endOfDay } } }),
       prisma.receipt.count({ where: { userId, createdAt: { gte: startOfDay, lte: endOfDay } } }),
       prisma.order.aggregate({
         _sum: { totalAmount: true },
         where: { userId, createdAt: { gte: startOfDay, lte: endOfDay } },
       }),
+      prisma.order.count({ where: { userId } }),
+      prisma.receipt.count({ where: { userId } }),
+      prisma.order.aggregate({ _sum: { totalAmount: true }, where: { userId } }),
+      prisma.receipt.aggregate({ _sum: { amount: true }, where: { userId } }),
       prisma.order.findMany({
         where: { userId },
         orderBy: { createdAt: 'desc' },
-        take: 10,
-        include: { store: { select: { name: true } } },
-      }),
-      prisma.userLog.findMany({
-        where: { userId },
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-        select: { action: true, createdAt: true, meta: true },
+        take: 5,
+        select: {
+          id: true,
+          billNumber: true,
+          totalAmount: true,
+          createdAt: true,
+          store: { select: { name: true } },
+        },
       }),
     ]);
+
+    const days: { label: string; sales: number; collected: number; orders: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const start = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+
+      const [ordersAgg, receiptsAgg, ordersCount] = await Promise.all([
+        prisma.order.aggregate({
+          _sum: { totalAmount: true },
+          where: { userId, createdAt: { gte: start, lte: end } },
+        }),
+        prisma.receipt.aggregate({
+          _sum: { amount: true },
+          where: { userId, createdAt: { gte: start, lte: end } },
+        }),
+        prisma.order.count({ where: { userId, createdAt: { gte: start, lte: end } } }),
+      ]);
+
+      days.push({
+        label: d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric' }),
+        sales: Number(ordersAgg._sum.totalAmount ?? 0),
+        collected: Number(receiptsAgg._sum.amount ?? 0),
+        orders: ordersCount,
+      });
+    }
 
     res.json({
       ordersToday,
       receiptsToday,
       salesToday: Number(totalOrdersAmount._sum.totalAmount ?? 0),
+      totalBillsGenerated: totalBills,
+      totalReceiptsGenerated: totalReceipts,
+      totalSales: Number(totalSalesAgg._sum.totalAmount ?? 0),
+      totalCollected: Number(totalCollectedAgg._sum.amount ?? 0),
       recentOrders,
-      recentActivity: recentLogs,
+      weeklyTrends: days,
     });
+  } catch (e) { next(e); }
+}
+
+export async function getPersonalActivity(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user!.id;
+    const page = Math.max(1, parseInt(String(req.query.page ?? '1'), 10) || 1);
+    const pageSize = Math.min(50, Math.max(5, parseInt(String(req.query.pageSize ?? '15'), 10) || 15));
+    const skip = (page - 1) * pageSize;
+
+    const [logs, total] = await Promise.all([
+      prisma.userLog.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: pageSize,
+        select: { id: true, action: true, meta: true, createdAt: true },
+      }),
+      prisma.userLog.count({ where: { userId } }),
+    ]);
+
+    res.json({
+      data: logs,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    });
+  } catch (e) { next(e); }
+}
+
+export async function getLowStockProducts(req: Request, res: Response, next: NextFunction) {
+  try {
+    const products = await prisma.product.findMany({
+      where: { availableQty: { lt: 5 } },
+      orderBy: { availableQty: 'asc' },
+      take: 100,
+      select: {
+        id: true,
+        modelName: true,
+        availableQty: true,
+        brand: { select: { name: true } },
+      },
+    });
+    res.json({ products, count: products.length });
   } catch (e) { next(e); }
 }
 
@@ -494,7 +577,7 @@ export async function getProfitReport(req: Request, res: Response, next: NextFun
             id: true,
             modelName: true,
             mrp: true,
-            nlc: true,
+            purchasePrice: true,
             brand: { select: { name: true } },
             category: { select: { name: true } },
           },
@@ -504,7 +587,8 @@ export async function getProfitReport(req: Request, res: Response, next: NextFun
     });
 
     // Calculate profit for each item
-    // Selling price = unitPrice; purchase price derived from MRP–NLC spread at sale time
+    // Selling price = unitPrice (already determined by user type during order creation)
+    // Purchase price = product.purchasePrice (if available) or fallback to old calculation
     const profitByProduct = new Map<string, {
       productId: string;
       productName: string;
@@ -520,7 +604,12 @@ export async function getProfitReport(req: Request, res: Response, next: NextFun
       const pid = item.productId;
       const quantity = item.quantity;
       const sellingPrice = Number(item.unitPrice);
-      const purchasePrice = sellingPrice - (Number(item.product.mrp) - Number(item.product.nlc));
+      
+      // Use purchasePrice if available, otherwise fallback to old MRP-based calculation
+      const purchasePrice = item.product.purchasePrice 
+        ? Number(item.product.purchasePrice)
+        : sellingPrice - (Number(item.product.mrp) - sellingPrice);  // Fallback for old data
+      
       const sales = Number(item.lineTotal);
       const cost = purchasePrice * quantity;
       const profit = sales - cost;
@@ -580,5 +669,237 @@ export async function getProfitReport(req: Request, res: Response, next: NextFun
         productCount: allItems.length,
       },
     });
+  } catch (e) { next(e); }
+}
+
+// Product Report — complete product history with stock movements
+export async function getProductReport(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { startDate, endDate, productId, categoryId, brandId, storeId, page = '1', limit = '20' } = req.query;
+
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    const now = new Date();
+    const start = startDate ? new Date(startDate as string) : undefined;
+    const end = endDate ? new Date(endDate as string) : undefined;
+    if (end) end.setHours(23, 59, 59, 999);
+
+    const orderWhere: Record<string, unknown> = {};
+    if (start || end) {
+      orderWhere.createdAt = {
+        ...(start ? { gte: start } : {}),
+        ...(end ? { lte: end } : {}),
+      };
+    }
+    const storeFilter = cleanQueryId(storeId);
+    if (storeFilter) orderWhere.storeId = storeFilter;
+
+    const productWhere: Record<string, string> = {};
+    const productFilter = cleanQueryId(productId);
+    const categoryFilter = cleanQueryId(categoryId);
+    const brandFilter = cleanQueryId(brandId);
+    if (productFilter) productWhere.id = productFilter;
+    if (categoryFilter) productWhere.categoryId = categoryFilter;
+    if (brandFilter) productWhere.brandId = brandFilter;
+
+    const products = await prisma.product.findMany({
+      where: productWhere,
+      select: {
+        id: true,
+        modelName: true,
+        mrp: true,
+        cashPrice: true,
+        creditPrice: true,
+        purchasePrice: true,
+        availableQty: true,
+        brand: { select: { name: true } },
+        category: { select: { name: true } },
+      },
+      orderBy: { modelName: 'asc' },
+    });
+
+    const productIds = products.map((p) => p.id);
+
+    const orderItems = await prisma.orderItem.findMany({
+      where: {
+        productId: { in: productIds },
+        order: Object.keys(orderWhere).length > 0 ? orderWhere : undefined,
+      },
+      select: {
+        productId: true,
+        quantity: true,
+        unitPrice: true,
+        lineTotal: true,
+        product: { select: { purchasePrice: true, mrp: true } },
+      },
+    });
+
+    const salesByProduct = new Map<string, {
+      totalQuantitySold: number;
+      totalSalesAmount: number;
+      totalProfit: number;
+    }>();
+
+    for (const item of orderItems) {
+      const purchasePrice = item.product.purchasePrice
+        ? Number(item.product.purchasePrice)
+        : Number(item.unitPrice) - (Number(item.product.mrp) - Number(item.unitPrice));
+      const cost = purchasePrice * item.quantity;
+      const sales = Number(item.lineTotal);
+      const profit = sales - cost;
+
+      const existing = salesByProduct.get(item.productId);
+      if (existing) {
+        existing.totalQuantitySold += item.quantity;
+        existing.totalSalesAmount += sales;
+        existing.totalProfit += profit;
+      } else {
+        salesByProduct.set(item.productId, {
+          totalQuantitySold: item.quantity,
+          totalSalesAmount: sales,
+          totalProfit: profit,
+        });
+      }
+    }
+
+    const allItems = products.map((p) => {
+      const sales = salesByProduct.get(p.id) ?? {
+        totalQuantitySold: 0,
+        totalSalesAmount: 0,
+        totalProfit: 0,
+      };
+      const currentStock = p.availableQty;
+      const totalQuantityAdded = currentStock + sales.totalQuantitySold;
+
+      return {
+        productId: p.id,
+        productName: p.modelName,
+        brandName: p.brand.name,
+        categoryName: p.category.name,
+        purchasePrice: p.purchasePrice ? Number(p.purchasePrice) : null,
+        cashPrice: Number(p.cashPrice),
+        creditPrice: Number(p.creditPrice),
+        mrp: Number(p.mrp),
+        totalQuantityAdded,
+        totalQuantitySold: sales.totalQuantitySold,
+        currentRemainingStock: currentStock,
+        totalSalesAmount: sales.totalSalesAmount,
+        totalProfit: sales.totalProfit,
+      };
+    });
+
+    const paginatedItems = allItems.slice(skip, skip + limitNum);
+
+    const summary = allItems.reduce(
+      (acc, item) => ({
+        totalQuantityAdded: acc.totalQuantityAdded + item.totalQuantityAdded,
+        totalQuantitySold: acc.totalQuantitySold + item.totalQuantitySold,
+        currentRemainingStock: acc.currentRemainingStock + item.currentRemainingStock,
+        totalSalesAmount: acc.totalSalesAmount + item.totalSalesAmount,
+        totalProfit: acc.totalProfit + item.totalProfit,
+      }),
+      {
+        totalQuantityAdded: 0,
+        totalQuantitySold: 0,
+        currentRemainingStock: 0,
+        totalSalesAmount: 0,
+        totalProfit: 0,
+      }
+    );
+
+    res.json({
+      startDate: start ?? null,
+      endDate: end ?? null,
+      items: paginatedItems,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: allItems.length,
+        pages: Math.ceil(allItems.length / limitNum),
+      },
+      summary: { ...summary, productCount: allItems.length },
+    });
+  } catch (e) { next(e); }
+}
+
+export async function getProductStockHistory(req: Request, res: Response, next: NextFunction) {
+  try {
+    const productId = req.params.productId;
+    if (!productId) return res.status(400).json({ message: 'Product ID required' });
+
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { id: true, modelName: true, availableQty: true },
+    });
+    if (!product) return res.status(404).json({ message: 'Product not found' });
+
+    const logs = await prisma.userLog.findMany({
+      where: {
+        action: { in: ['PRODUCT_CREATION', 'PRODUCT_UPDATE'] },
+      },
+      include: { user: { select: { username: true, role: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+    });
+
+    const stockLogs = logs
+      .filter((log) => {
+        const meta = log.meta as Record<string, unknown> | null;
+        return meta?.productId === productId && (
+          log.action === 'PRODUCT_CREATION' ||
+          meta.type === 'stock_adjustment' ||
+          meta.type === 'initial_stock'
+        );
+      })
+      .map((log) => {
+        const meta = log.meta as Record<string, unknown>;
+        const isCreation = log.action === 'PRODUCT_CREATION';
+        return {
+          id: log.id,
+          date: log.createdAt,
+          type: isCreation ? 'initial_stock' : 'stock_adjustment',
+          previousQty: isCreation ? 0 : (meta.previousQty as number | undefined),
+          newQty: isCreation ? (meta.availableQty as number) : (meta.newQty as number | undefined),
+          delta: isCreation ? (meta.availableQty as number) : (meta.delta as number | undefined),
+          performedBy: log.user.username,
+          role: log.user.role,
+          note: isCreation
+            ? `Initial stock: ${meta.availableQty} units`
+            : `Stock ${(meta.delta as number) >= 0 ? 'increased' : 'decreased'} by ${Math.abs(meta.delta as number)} units (${meta.previousQty} → ${meta.newQty})`,
+        };
+      });
+
+    const salesHistory = await prisma.orderItem.findMany({
+      where: { productId },
+      select: {
+        quantity: true,
+        order: {
+          select: {
+            billNumber: true,
+            createdAt: true,
+            user: { select: { username: true } },
+          },
+        },
+      },
+      orderBy: { order: { createdAt: 'desc' } },
+      take: 50,
+    });
+
+    const salesMovements = salesHistory.map((item) => ({
+      id: `sale-${item.order.billNumber}`,
+      date: item.order.createdAt,
+      type: 'sale' as const,
+      delta: -item.quantity,
+      performedBy: item.order.user.username,
+      note: `Sold ${item.quantity} units on bill ${item.order.billNumber}`,
+    }));
+
+    const history = [...stockLogs, ...salesMovements].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
+    res.json({ product, history });
   } catch (e) { next(e); }
 }

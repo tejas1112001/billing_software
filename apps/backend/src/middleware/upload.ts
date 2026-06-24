@@ -59,11 +59,11 @@ const fileFilter = (_req: Express.Request, file: Express.Multer.File, cb: multer
     return;
   }
 
-  cb(new Error('Only JPG, JPEG, PNG, and WebP images are allowed (max 5 MB)'));
+  cb(new Error('Only JPG, JPEG, PNG, and WebP images are allowed (max 3 MB)'));
 };
 
 export const uploadImage = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  limits: { fileSize: 3 * 1024 * 1024 }, // 3 MB
 }).single('image');

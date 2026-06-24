@@ -14,7 +14,9 @@ const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
 // Common (authenticated)
 const HomePage = lazy(() => import('@/pages/dashboard/HomePage'));
 const GenerateBillPage = lazy(() => import('@/pages/billing/GenerateBillPage'));
+const GeneratedBillsPage = lazy(() => import('@/pages/billing/GeneratedBillsPage'));
 const GenerateReceiptPage = lazy(() => import('@/pages/receipts/GenerateReceiptPage'));
+const GeneratedReceiptsPage = lazy(() => import('@/pages/receipts/GeneratedReceiptsPage'));
 const LedgerPage = lazy(() => import('@/pages/ledger/LedgerPage'));
 const StockReportPage = lazy(() => import('@/pages/stock-reports/StockReportPage'));
 
@@ -33,6 +35,7 @@ const ReportsIndex = lazy(() => import('@/pages/reports/ReportsIndex'));
 const CashCreditReport = lazy(() => import('@/pages/admin/reports/CashCreditReport'));
 const PurchaseQuantityReport = lazy(() => import('@/pages/admin/reports/PurchaseQuantityReport'));
 const ProfitReport = lazy(() => import('@/pages/admin/reports/ProfitReport'));
+const ProductReport = lazy(() => import('@/pages/admin/reports/ProductReport'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -65,7 +68,9 @@ export default function App() {
               <Route element={<AppLayout />}>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/bills" element={<GenerateBillPage />} />
+                <Route path="/bills/generated" element={<GeneratedBillsPage />} />
                 <Route path="/receipts" element={<GenerateReceiptPage />} />
+                <Route path="/receipts/generated" element={<GeneratedReceiptsPage />} />
                 <Route path="/ledger" element={<LedgerPage />} />
                 <Route path="/stock-reports" element={<StockReportPage />} />
 
@@ -75,6 +80,7 @@ export default function App() {
                   <Route path="/reports/cash-credit" element={<CashCreditReport />} />
                   <Route path="/reports/purchase-quantity" element={<PurchaseQuantityReport />} />
                   <Route path="/reports/profit" element={<ProfitReport />} />
+                  <Route path="/reports/product" element={<ProductReport />} />
 
                   <Route path="/admin" element={<AdminIndexPage />} />
                   <Route path="/admin/brands" element={<BrandsPage />} />

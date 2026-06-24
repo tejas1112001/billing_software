@@ -7,6 +7,7 @@ export async function getLedger(storeId: string, query: Request['query']) {
   const search = query.search ? String(query.search) : undefined;
   const dateFrom = query.dateFrom ? new Date(String(query.dateFrom)) : undefined;
   const dateTo = query.dateTo ? new Date(String(query.dateTo)) : undefined;
+  const operatorType = query.operatorType ? String(query.operatorType) : undefined;
 
   // Stored opening balance (base value set by admin)
   const openingBalanceRecord = await prisma.openingBalance.findUnique({ where: { storeId } });
@@ -17,8 +18,15 @@ export async function getLedger(storeId: string, query: Request['query']) {
   // If no dateFrom, effective opening balance is just the stored OB
   let effectiveOpeningBalance = storedOpeningBalance;
   if (dateFrom) {
+    const priorWhere: Record<string, unknown> = { storeId, date: { lt: dateFrom } };
+    if (operatorType === 'CASH' || operatorType === 'CREDIT') {
+      priorWhere.OR = [
+        { order: { user: { operatorType } } },
+        { receipt: { user: { operatorType } } },
+      ];
+    }
     const priorEntries = await prisma.ledgerEntry.findMany({
-      where: { storeId, date: { lt: dateFrom } },
+      where: priorWhere,
       orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
       select: { voucherType: true, amount: true },
     });
@@ -38,6 +46,12 @@ export async function getLedger(storeId: string, query: Request['query']) {
       ...(dateTo ? { lte: dateTo } : {}),
     };
   }
+  if (operatorType === 'CASH' || operatorType === 'CREDIT') {
+    where.OR = [
+      { order: { user: { operatorType } } },
+      { receipt: { user: { operatorType } } },
+    ];
+  }
 
   const [entries, total] = await Promise.all([
     prisma.ledgerEntry.findMany({
@@ -46,8 +60,8 @@ export async function getLedger(storeId: string, query: Request['query']) {
       take,
       orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
       include: {
-        order: { select: { billNumber: true } },
-        receipt: { select: { receiptNumber: true } },
+        order: { select: { billNumber: true, user: { select: { username: true, operatorType: true } } } },
+        receipt: { select: { receiptNumber: true, user: { select: { username: true, operatorType: true } } } },
       },
     }),
     prisma.ledgerEntry.count({ where }),

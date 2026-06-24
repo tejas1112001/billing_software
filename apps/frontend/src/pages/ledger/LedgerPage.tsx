@@ -9,6 +9,10 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
+  Users,
+  Banknote,
+  CreditCard,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/common/PageHeader';
@@ -32,13 +36,14 @@ import { receiptService } from '@/services/receiptService';
 import { formatCurrency } from '@/utils/formatCurrency';
 import { formatDate, formatDateTime } from '@/utils/formatDate';
 import { useAuthStore } from '@/stores/authStore';
+import { cn } from '@/lib/utils';
 import type { Store, LedgerEntry, Order, Receipt } from '@/types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-// 3 summary rows (Opening, Current Total, Closing) always appear, so data rows = PAGE_SIZE - 3
-const PAGE_SIZE = 10;
-const DATA_ROWS_PER_PAGE = PAGE_SIZE - 3;
+// Desktop table shows 3 summary rows; mobile uses separate summary cards
+const DATA_ROWS_PER_PAGE = 10;
+const MOBILE_ROWS_PER_PAGE = 12;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -265,18 +270,21 @@ function LedgerTable({
   allEntries,
   openingBalance,
   onOpenDetail,
+  isMobile = false,
 }: {
   allEntries: LedgerEntry[];
   openingBalance: number;
   onOpenDetail: (entry: LedgerEntry) => void;
+  isMobile?: boolean;
 }) {
   const [page, setPage] = useState(1);
 
-  const totalPages = Math.max(1, Math.ceil(allEntries.length / DATA_ROWS_PER_PAGE));
+  const rowsPerPage = isMobile ? MOBILE_ROWS_PER_PAGE : DATA_ROWS_PER_PAGE;
+  const totalPages = Math.max(1, Math.ceil(allEntries.length / rowsPerPage));
   const safePage = Math.min(page, totalPages);
   const pageEntries = allEntries.slice(
-    (safePage - 1) * DATA_ROWS_PER_PAGE,
-    safePage * DATA_ROWS_PER_PAGE,
+    (safePage - 1) * rowsPerPage,
+    safePage * rowsPerPage,
   );
 
   const totalDebit = allEntries.reduce((sum, e) => e.voucherType === 'ORDER' ? sum + Number(e.amount) : sum, 0);
@@ -306,13 +314,65 @@ function LedgerTable({
     );
   }
 
-  const start = (safePage - 1) * DATA_ROWS_PER_PAGE + 1;
-  const end = Math.min(safePage * DATA_ROWS_PER_PAGE, allEntries.length);
+  const start = (safePage - 1) * rowsPerPage + 1;
+  const end = Math.min(safePage * rowsPerPage, allEntries.length);
+  const closingBalance = openingBalance + totalDebit - totalCredit;
 
   return (
     <div>
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-2 mb-3">
+        {pageEntries.map((entry) => {
+          const isOrder = entry.voucherType === 'ORDER';
+          const label = getEntryLabel(entry);
+          return (
+            <button
+              key={entry.id}
+              type="button"
+              onClick={() => onOpenDetail(entry)}
+              className="w-full text-left rounded-lg border bg-card p-3 shadow-sm active:bg-muted/30 transition-colors"
+            >
+              <div className="flex items-start justify-between gap-2 mb-1.5">
+                <div>
+                  <p className="text-xs text-muted-foreground">{formatDate(entry.date, 'd-MMM-yy')}</p>
+                  <p className="text-sm font-medium truncate">{entry.customerName ?? entry.billSerialNumber ?? '—'}</p>
+                </div>
+                <TypeBadge label={label} />
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-xs font-mono text-muted-foreground">{entry.billSerialNumber ?? '—'}</span>
+                {isOrder ? (
+                  <span className="font-semibold text-red-600">{formatCurrency(entry.amount)}</span>
+                ) : (
+                  <span className="font-semibold text-green-700">{formatCurrency(entry.amount)}</span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+        {/* Mobile summary strip */}
+        <div className="grid grid-cols-3 gap-1.5 pt-1">
+          <div className="rounded-lg border bg-blue-50/80 p-2 text-center">
+            <p className="text-[9px] text-blue-700 font-semibold uppercase">Opening</p>
+            <p className="text-xs font-bold text-blue-800 tabular-nums">{formatCurrency(openingBalance)}</p>
+          </div>
+          <div className="rounded-lg border bg-green-50/80 p-2 text-center">
+            <p className="text-[9px] text-green-700 font-semibold uppercase">Dr / Cr</p>
+            <p className="text-[10px] font-bold tabular-nums">
+              <span className="text-red-600">{formatCurrency(totalDebit)}</span>
+              <span className="text-muted-foreground mx-0.5">/</span>
+              <span className="text-green-700">{formatCurrency(totalCredit)}</span>
+            </p>
+          </div>
+          <div className="rounded-lg border bg-slate-100 p-2 text-center">
+            <p className="text-[9px] text-slate-700 font-semibold uppercase">Closing</p>
+            <p className="text-xs font-bold text-slate-800 tabular-nums">{formatCurrency(closingBalance)}</p>
+          </div>
+        </div>
+      </div>
+
       {/* ── Table ─────────────────────────────────────────────────────────── */}
-      <div className="overflow-x-auto">
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full border-collapse text-xs min-w-[560px]">
           <thead>
             <tr className="bg-[#1e1b4b] text-white">
@@ -456,18 +516,22 @@ function LedgerTable({
 export default function LedgerPage() {
   const { user } = useAuthStore();
   const qc = useQueryClient();
+  const isAdmin = user?.role === 'ADMIN';
 
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [obAmount, setObAmount] = useState('');
+  const [operatorFilter, setOperatorFilter] = useState<'ALL' | 'CASH' | 'CREDIT'>('ALL');
   const [detailEntry, setDetailEntry] = useState<LedgerEntry | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['ledger', selectedStore?.id],
+    queryKey: ['ledger', selectedStore?.id, operatorFilter],
     queryFn: () =>
       ledgerService.getLedger(selectedStore!.id, {
         pageSize: 1000,
         page: 1,
+        operatorType: isAdmin && operatorFilter !== 'ALL' ? operatorFilter : undefined,
       }),
     enabled: !!selectedStore,
   });
@@ -498,6 +562,22 @@ export default function LedgerPage() {
   const handleChangeStore = () => {
     setSelectedStore(null);
     setObAmount('');
+    setOperatorFilter('ALL');
+  };
+
+  const handleExportExcel = async () => {
+    if (!selectedStore) return;
+    setExporting(true);
+    try {
+      await ledgerService.exportExcel(selectedStore.id, {
+        operatorType: isAdmin && operatorFilter !== 'ALL' ? operatorFilter : undefined,
+      });
+      toast.success('Ledger exported to Excel');
+    } catch {
+      toast.error('Failed to export ledger');
+    } finally {
+      setExporting(false);
+    }
   };
 
   // ── Step 1: store not selected ──────────────────────────────────────────────
@@ -515,48 +595,88 @@ export default function LedgerPage() {
 
   // ── Step 2: store selected, show ledger ─────────────────────────────────────
   return (
-    <div className="w-full px-3 py-3 space-y-2">
-      {/* Header row — back button + store name inline */}
-      <div className="flex items-center gap-1.5">
-        <button
-          onClick={handleChangeStore}
-          className="inline-flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors shrink-0"
-          title="Change store"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-        </button>
-        <div className="min-w-0">
-          <span className="font-bold text-base leading-tight">{selectedStore.name}</span>
-          <span className="text-xs text-muted-foreground ml-2">{selectedStore.city}</span>
+    <div className="w-full px-2 sm:px-3 py-3 space-y-3">
+      {/* Header row */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <button
+            onClick={handleChangeStore}
+            className="inline-flex items-center justify-center h-7 w-7 rounded text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors shrink-0"
+            title="Change store"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div className="min-w-0">
+            <span className="font-bold text-base leading-tight truncate block">{selectedStore.name}</span>
+            <span className="text-xs text-muted-foreground">{selectedStore.city}</span>
+          </div>
         </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 text-xs shrink-0 gap-1.5"
+          onClick={handleExportExcel}
+          disabled={exporting || isLoading}
+        >
+          {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />}
+          <span className="hidden sm:inline">Export Excel</span>
+          <span className="sm:hidden">Export</span>
+        </Button>
       </div>
 
-      {/* Admin: opening balance */}
-      {user?.role === 'ADMIN' && (
-        <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded border bg-white">
-          <Label className="text-xs font-medium text-muted-foreground">Opening Balance:</Label>
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder="0.00"
-            value={obAmount}
-            onChange={(e) => setObAmount(e.target.value)}
-            className="w-32 h-7 text-xs"
-          />
-          <Button
-            size="sm"
-            className="h-7 text-xs px-3"
-            onClick={() => obMutation.mutate()}
-            disabled={obMutation.isPending}
-          >
-            {obMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
-          </Button>
-          {data?.openingBalance !== undefined && (
-            <span className="text-xs text-muted-foreground">
-              Current: {formatCurrency(data.openingBalance)}
-            </span>
-          )}
+      {/* Admin: filter + opening balance — single row on desktop */}
+      {isAdmin && (
+        <div className="rounded-xl border bg-card p-3 shadow-sm space-y-3 lg:space-y-0 lg:flex lg:items-end lg:gap-4">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold uppercase text-muted-foreground mb-2 tracking-wide flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5" /> Filter Transactions
+            </p>
+            <div className="flex gap-1.5 flex-wrap">
+              {([
+                { key: 'ALL' as const, label: 'All', icon: Users },
+                { key: 'CASH' as const, label: 'Cash', icon: Banknote },
+                { key: 'CREDIT' as const, label: 'Credit', icon: CreditCard },
+              ]).map(({ key, label, icon: Icon }) => (
+                <Button
+                  key={key}
+                  size="sm"
+                  variant={operatorFilter === key ? 'default' : 'outline'}
+                  className={cn('h-8 text-xs flex-1 sm:flex-none min-w-[72px]', operatorFilter === key && 'shadow-sm')}
+                  onClick={() => setOperatorFilter(key)}
+                >
+                  <Icon className="h-3 w-3 mr-1 shrink-0" />
+                  <span>{label}</span>
+                </Button>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:border-l lg:pl-4">
+            <Label className="text-xs font-semibold uppercase text-muted-foreground tracking-wide whitespace-nowrap">
+              Opening Balance
+            </Label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="0.00"
+              value={obAmount}
+              onChange={(e) => setObAmount(e.target.value)}
+              className="w-28 h-8 text-xs"
+            />
+            <Button
+              size="sm"
+              className="h-8 text-xs px-3"
+              onClick={() => obMutation.mutate()}
+              disabled={obMutation.isPending}
+            >
+              {obMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
+            </Button>
+            {data?.openingBalance !== undefined && (
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                Current: <span className="font-semibold text-foreground">{formatCurrency(data.openingBalance)}</span>
+              </span>
+            )}
+          </div>
         </div>
       )}
 
@@ -580,11 +700,23 @@ export default function LedgerPage() {
               ))}
             </div>
           ) : (
-            <LedgerTable
-              allEntries={entries}
-              openingBalance={openingBalance}
-              onOpenDetail={handleOpenDetail}
-            />
+            <>
+              <div className="md:hidden">
+                <LedgerTable
+                  allEntries={entries}
+                  openingBalance={openingBalance}
+                  onOpenDetail={handleOpenDetail}
+                  isMobile
+                />
+              </div>
+              <div className="hidden md:block">
+                <LedgerTable
+                  allEntries={entries}
+                  openingBalance={openingBalance}
+                  onOpenDetail={handleOpenDetail}
+                />
+              </div>
+            </>
           )}
         </div>
       </div>

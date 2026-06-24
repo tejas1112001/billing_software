@@ -2,17 +2,22 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ShoppingCart, AlertTriangle, TrendingUp,
-  Wallet, Users, CreditCard, Banknote, Clock, PackageSearch,
+  Wallet, Users, CreditCard, Banknote, Clock, PackageSearch, Package,
 } from 'lucide-react';
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
-  AreaChart, Area,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { dashboardService } from '@/services/dashboardService';
 import { formatCurrency } from '@/utils/formatCurrency';
 import { cn } from '@/lib/utils';
@@ -77,11 +82,18 @@ function timeAgo(dateStr: string): string {
 
 export default function AdminDashboard() {
   const [operatorFilter, setOperatorFilter] = useState<OperatorType | undefined>();
+  const [lowStockOpen, setLowStockOpen] = useState(false);
 
   const { data: stats, isLoading: loadingStats } = useQuery<DashboardStats>({
     queryKey: ['dashboard-stats'],
     queryFn: dashboardService.getStats,
     refetchInterval: 30000,
+  });
+
+  const { data: lowStockData, isLoading: loadingLowStock, isFetching: fetchingLowStock } = useQuery({
+    queryKey: ['low-stock-products'],
+    queryFn: dashboardService.getLowStockProducts,
+    enabled: lowStockOpen,
   });
 
   const { data: opData, isLoading: loadingOps } = useQuery({
@@ -91,7 +103,7 @@ export default function AdminDashboard() {
   });
 
   const { data: trendsData, isLoading: loadingTrends } = useQuery({
-    queryKey: ['weekly-trends'],
+    queryKey: ['weekly-trends', operatorFilter],
     queryFn: dashboardService.getWeeklyTrends,
     refetchInterval: 60000,
   });
@@ -132,58 +144,24 @@ export default function AdminDashboard() {
             <StatCard label="Orders Today" value={stats?.totalOrdersToday ?? 0} icon={ShoppingCart} color="text-blue-600" />
             <StatCard label="Sales Today" value={formatCurrency(stats?.totalSalesToday ?? 0)} amount={stats?.totalSalesToday ?? 0} icon={TrendingUp} color="text-indigo-600" />
             <StatCard label="Collected Today" value={formatCurrency(stats?.totalCollectedToday ?? 0)} amount={stats?.totalCollectedToday ?? 0} icon={Wallet} color="text-emerald-600" />
-            <StatCard label="Low Stock" value={stats?.lowStockProducts ?? 0} icon={AlertTriangle} color="text-yellow-600" sub="< 5 units" />
+            <button type="button" className="text-left w-full" onClick={() => setLowStockOpen(true)}>
+              <StatCard label="Low Stock" value={stats?.lowStockProducts ?? 0} icon={AlertTriangle} color="text-yellow-600" sub="< 5 units · tap to view" highlight={(stats?.lowStockProducts ?? 0) > 0} />
+            </button>
           </>
         )}
       </div>
 
-      {/* ── 7-day trend ── */}
-      <Card>
-        <CardHeader className="p-4 pb-2">
-          <CardTitle className="text-sm">7-Day Sales &amp; Collections</CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 pt-0">
-          {loadingTrends ? (
-            <Skeleton className="h-52" />
-          ) : !trendsData?.days.length ? (
-            <div className="h-52 flex items-center justify-center text-muted-foreground text-sm">No data available</div>
-          ) : (
-            <ResponsiveContainer width="100%" height={210}>
-              <AreaChart data={trendsData.days} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="gradSales" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#4F46E5" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="gradCollected" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                <XAxis dataKey="label" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} />
-                <Tooltip formatter={(v) => formatCurrency(v as number)} />
-                <Legend iconSize={10} wrapperStyle={{ fontSize: 11 }} />
-                <Area type="monotone" dataKey="sales" name="Sales" stroke="#4F46E5" fill="url(#gradSales)" strokeWidth={2} dot={{ r: 3 }} />
-                <Area type="monotone" dataKey="collected" name="Collected" stroke="#10B981" fill="url(#gradCollected)" strokeWidth={2} dot={{ r: 3 }} />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ── Operator performance ── */}
+      {/* ── Operator performance with filters ── */}
       <div>
-        <div className="flex items-center gap-2 mb-3 flex-wrap">
-          <h2 className="font-semibold text-sm">Operator Performance</h2>
-          <div className="flex gap-1.5 ml-auto">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
+          <h2 className="font-semibold text-sm">Business Insights</h2>
+          <div className="flex gap-1.5 sm:ml-auto flex-wrap">
             {(['all', 'CASH', 'CREDIT'] as const).map((f) => (
               <Button
                 key={f}
                 size="sm"
                 variant={(!operatorFilter && f === 'all') || operatorFilter === f ? 'default' : 'outline'}
-                className="h-7 text-xs px-3"
+                className="h-8 text-xs px-3 flex-1 sm:flex-none min-w-[80px]"
                 onClick={() => setOperatorFilter(f === 'all' ? undefined : f as OperatorType)}
               >
                 {f === 'all' ? 'All' : f === 'CASH' ? (
@@ -195,6 +173,32 @@ export default function AdminDashboard() {
             ))}
           </div>
         </div>
+
+        {/* Weekly trend inline */}
+        <Card className="mb-4">
+          <CardHeader className="p-4 pb-2">
+            <CardTitle className="text-sm">7-Day Sales Overview</CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            {loadingTrends ? (
+              <Skeleton className="h-44" />
+            ) : !trendsData?.days.length ? (
+              <div className="h-44 flex items-center justify-center text-muted-foreground text-sm">No data available</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={trendsData.days} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip formatter={(v) => formatCurrency(v as number)} />
+                  <Legend iconSize={10} wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="sales" name="Sales" fill="#4F46E5" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="collected" name="Collected" fill="#10B981" radius={[3, 3, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Pie chart */}
@@ -390,6 +394,41 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Low stock dialog */}
+      <Dialog open={lowStockOpen} onOpenChange={setLowStockOpen}>
+        <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-4 w-4 text-yellow-600" />
+              Low Stock Products
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto -mx-2 px-2">
+            {loadingLowStock || fetchingLowStock ? (
+              <div className="space-y-2 py-4">
+                {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+              </div>
+            ) : !lowStockData?.products.length ? (
+              <p className="text-center text-muted-foreground text-sm py-8">No low-stock products found.</p>
+            ) : (
+              <div className="divide-y">
+                {lowStockData.products.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between py-3 gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{p.modelName}</p>
+                      <p className="text-xs text-muted-foreground">{p.brand?.name}</p>
+                    </div>
+                    <Badge variant={p.availableQty === 0 ? 'destructive' : 'warning'} className="shrink-0">
+                      {p.availableQty} left
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,18 +1,21 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
-export async function generateBillNumber(
-  prismaOrTx: any,
-  storeId: string,
-  date: Date
-): Promise<string> {
-  const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-  
-  // Use timestamp in milliseconds for uniqueness
-  const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
-  
-  // Generate a random 3-digit suffix for additional uniqueness
-  const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-  
-  // Format: BILL-YYYYMMDD-TTTTTTRRR (T=timestamp, R=random)
-  return `BILL-${dateStr}-${timestamp}${randomSuffix}`;
+type TxClient = Omit<
+  Prisma.TransactionClient,
+  '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+>;
+
+export async function generateBillNumber(tx: TxClient): Promise<string> {
+  await tx.billCounter.upsert({
+    where: { id: 'global' },
+    create: { id: 'global', value: 0 },
+    update: {},
+  });
+
+  const updated = await tx.billCounter.update({
+    where: { id: 'global' },
+    data: { value: { increment: 1 } },
+  });
+
+  return `BILL-${updated.value}`;
 }

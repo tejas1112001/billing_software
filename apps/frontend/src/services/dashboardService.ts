@@ -11,6 +11,12 @@ export const dashboardService = {
   getPersonalStats: (): Promise<PersonalStats> =>
     api.get('/dashboard/personal-stats').then((r) => r.data),
 
+  getPersonalActivity: (params?: { page?: number; pageSize?: number }) =>
+    api.get('/dashboard/personal-activity', { params }).then((r) => r.data),
+
+  getLowStockProducts: (): Promise<{ products: Array<{ id: string; modelName: string; availableQty: number; brand?: { name: string } }>; count: number }> =>
+    api.get('/dashboard/low-stock-products').then((r) => r.data),
+
   getWeeklyTrends: (): Promise<{ days: WeeklyTrendDay[] }> =>
     api.get('/dashboard/weekly-trends').then((r) => r.data),
 
@@ -29,4 +35,10 @@ export const dashboardService = {
 
   getProfitReport: (params: { startDate?: string; endDate?: string; productId?: string; categoryId?: string; brandId?: string; storeId?: string; page?: number; limit?: number }) =>
     api.get('/dashboard/profit-report', { params }).then((r) => r.data),
+
+  getProductReport: (params: { startDate?: string; endDate?: string; productId?: string; categoryId?: string; brandId?: string; storeId?: string; page?: number; limit?: number }) =>
+    api.get('/dashboard/product-report', { params }).then((r) => r.data),
+
+  getProductStockHistory: (productId: string) =>
+    api.get(`/dashboard/product-report/${productId}/history`).then((r) => r.data),
 };
