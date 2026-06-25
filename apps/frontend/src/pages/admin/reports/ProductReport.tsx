@@ -287,7 +287,7 @@ export default function ProductReport() {
                       <div><span className="text-muted-foreground">Added:</span> {item.totalQuantityAdded}</div>
                       <div><span className="text-muted-foreground">Sold:</span> {item.totalQuantitySold}</div>
                       <div><span className="text-muted-foreground">Purchase:</span> {item.purchasePrice != null ? formatCurrency(item.purchasePrice) : '—'}</div>
-                      <div><span className="text-muted-foreground">Cash/Credit:</span> {formatCurrency(item.cashPrice)} / {formatCurrency(item.creditPrice)}</div>
+                      <div><span className="text-muted-foreground">Gold/Platinum:</span> {formatCurrency(item.cashPrice)} / {formatCurrency(item.creditPrice)}</div>
                       <div><span className="text-muted-foreground">Sales:</span> <span className="font-medium text-blue-600">{formatCurrency(item.totalSalesAmount)}</span></div>
                       <div><span className="text-muted-foreground">Profit:</span> <span className="font-medium text-emerald-600">{formatCurrency(item.totalProfit)}</span></div>
                     </div>
@@ -314,7 +314,7 @@ export default function ProductReport() {
                       <th className="text-right p-2.5 font-medium text-muted-foreground">Sold</th>
                       <th className="text-right p-2.5 font-medium text-muted-foreground">Stock</th>
                       <th className="text-right p-2.5 font-medium text-muted-foreground hidden lg:table-cell">Purchase</th>
-                      <th className="text-right p-2.5 font-medium text-muted-foreground hidden lg:table-cell">Cash/Credit</th>
+                      <th className="text-right p-2.5 font-medium text-muted-foreground hidden lg:table-cell">Gold/Platinum</th>
                       <th className="text-right p-2.5 font-medium text-muted-foreground">Sales</th>
                       <th className="text-right p-2.5 font-medium text-muted-foreground">Profit</th>
                       <th className="text-center p-2.5 font-medium text-muted-foreground w-20">History</th>

@@ -138,12 +138,12 @@ export default function StockReportPage() {
     },
     {
       key: 'cashPrice',
-      header: 'Cash Price',
+      header: 'Gold Price',
       cell: (r) => <div className="text-sm text-green-600 font-medium">{formatCurrency(r.cashPrice)}</div>,
     },
     {
       key: 'creditPrice',
-      header: 'Credit Price',
+      header: 'Platinum Price',
       cell: (r) => <div className="text-sm text-blue-600 font-medium">{formatCurrency(r.creditPrice)}</div>,
     },
     {

@@ -227,7 +227,7 @@ export default function GenerateBillPage() {
 
   const FilterBar = () => (
     <div className="space-y-2">
-      <SearchInput placeholder="Search products..." onChange={setSearch} className="w-full h-10" />
+      <SearchInput placeholder="Search products by name, brand, or category..." onChange={setSearch} className="w-full h-10" />
       <div className="grid grid-cols-2 gap-2">
         <Select value={selectedBrand} onValueChange={(v) => { setSelectedBrand(v); setSelectedCategory(''); }}>
           <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Brand" /></SelectTrigger>

@@ -25,6 +25,7 @@ import { usePagination } from '@/hooks/usePagination';
 import { useAuthStore } from '@/stores/authStore';
 import { formatCurrency } from '@/utils/formatCurrency';
 import { formatDate, formatDateTime } from '@/utils/formatDate';
+import { getOperatorTypeDisplay } from '@/utils/operatorTypeDisplay';
 import type { Receipt, PaginatedResponse, AppUser, PaymentMethod } from '@/types';
 
 export default function GeneratedReceiptsPage() {
@@ -137,7 +138,7 @@ export default function GeneratedReceiptsPage() {
               <span className="text-sm">{r.user?.username ?? '—'}</span>
               {r.user?.operatorType && (
                 <Badge variant={r.user.operatorType === 'CASH' ? 'success' : 'warning'} className="text-[10px]">
-                  {r.user.operatorType}
+                  {getOperatorTypeDisplay(r.user.operatorType)}
                 </Badge>
               )}
             </div>

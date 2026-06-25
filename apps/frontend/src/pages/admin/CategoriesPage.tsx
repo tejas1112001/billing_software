@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PageHeader } from '@/components/common/PageHeader';
+import { SearchInput } from '@/components/common/SearchInput';
 import { DataTable, ColumnDef } from '@/components/common/DataTable';
 import { Pagination } from '@/components/common/Pagination';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -31,7 +32,8 @@ type FormData = z.infer<typeof schema>;
 
 export default function CategoriesPage() {
   const qc = useQueryClient();
-  const { page, pageSize, setPage, setPageSize } = usePagination();
+  const { page, pageSize, setPage, setPageSize, reset } = usePagination();
+  const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<Category | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -41,8 +43,8 @@ export default function CategoriesPage() {
   const [isUploading, setIsUploading] = useState(false);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['categories', page, pageSize],
-    queryFn: () => categoryService.list({ page, pageSize }),
+    queryKey: ['categories', page, pageSize, search],
+    queryFn: () => categoryService.list({ page, pageSize, search: search || undefined }),
   });
   const { data: brands } = useQuery<Brand[]>({
     queryKey: ['brands-all'],
@@ -192,6 +194,18 @@ export default function CategoriesPage() {
           </Button>
         }
       />
+      
+      {/* Search */}
+      <div className="flex gap-2">
+        <SearchInput
+          placeholder="Search categories..."
+          onChange={(v) => {
+            setSearch(v);
+            reset();
+          }}
+          className="flex-1"
+        />
+      </div>
       
       <div className="rounded-lg border bg-card shadow-sm">
         <DataTable

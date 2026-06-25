@@ -32,8 +32,8 @@ const schema = z.object({
   brandId: z.string().min(1, 'Required'),
   categoryId: z.string().min(1, 'Required'),
   mrp: z.coerce.number().positive('MRP must be positive'),
-  cashPrice: z.coerce.number().positive('Cash Price must be positive'),
-  creditPrice: z.coerce.number().positive('Credit Price must be positive'),
+  cashPrice: z.coerce.number().positive('Gold Price must be positive'),
+  creditPrice: z.coerce.number().positive('Platinum Price must be positive'),
   purchasePrice: z.coerce.number().positive('Purchase Price must be positive').optional().or(z.literal(0)),
   availableQty: z.coerce.number().int().min(0, 'Cannot be negative'),
   isNewArrival: z.boolean().optional(),
@@ -231,8 +231,8 @@ export default function ProductsPage() {
     { key: 'brand', header: 'Brand', cell: (r) => r.brand?.name || '-' },
     { key: 'category', header: 'Category', cell: (r) => r.category?.name || '-' },
     { key: 'mrp', header: 'MRP', cell: (r) => formatCurrency(r.mrp) },
-    { key: 'cashPrice', header: 'Cash Price', cell: (r) => formatCurrency(r.cashPrice) },
-    { key: 'creditPrice', header: 'Credit Price', cell: (r) => formatCurrency(r.creditPrice) },
+    { key: 'cashPrice', header: 'Gold Price', cell: (r) => formatCurrency(r.cashPrice) },
+    { key: 'creditPrice', header: 'Platinum Price', cell: (r) => formatCurrency(r.creditPrice) },
     {
       key: 'availableQty',
       header: 'Qty',
@@ -283,7 +283,7 @@ export default function ProductsPage() {
       
       <div className="mb-4">
         <SearchInput
-          placeholder="Search products..."
+          placeholder="Search products by name, brand, or category..."
           onChange={(v) => {
             setSearch(v);
             reset();
@@ -388,12 +388,12 @@ export default function ProductsPage() {
                 {errors.mrp && <p className="text-xs text-destructive">{errors.mrp.message}</p>}
               </div>
               <div>
-                <Label className="text-xs sm:text-sm">Cash Price</Label>
+                <Label className="text-xs sm:text-sm">Gold Price</Label>
                 <Input type="number" step="0.01" {...register('cashPrice')} className="h-8 sm:h-9 mt-1" />
                 {errors.cashPrice && <p className="text-xs text-destructive">{errors.cashPrice.message}</p>}
               </div>
               <div>
-                <Label className="text-xs sm:text-sm">Credit Price</Label>
+                <Label className="text-xs sm:text-sm">Platinum Price</Label>
                 <Input type="number" step="0.01" {...register('creditPrice')} className="h-8 sm:h-9 mt-1" />
                 {errors.creditPrice && <p className="text-xs text-destructive">{errors.creditPrice.message}</p>}
               </div>

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/stores/authStore';
 import { authService } from '@/services/authService';
+import { getOperatorTypeDisplay } from '@/utils/operatorTypeDisplay';
 import { UserMenu } from '@/components/common/UserMenu';
 import { cn } from '@/lib/utils';
 
@@ -51,7 +52,7 @@ const adminNav: NavItem[] = [
 
 const adminReportItems: NavChild[] = [
   { to: '/reports', label: 'All Reports', end: true },
-  { to: '/reports/cash-credit', label: 'Cash and Credit', end: false },
+  { to: '/reports/cash-credit', label: 'Gold and Platinum', end: false },
   { to: '/reports/purchase-quantity', label: 'Purchases Qty', end: false },
   { to: '/reports/profit', label: 'Profit Report', end: false },
   { to: '/reports/product', label: 'Product Report', end: false },
@@ -146,7 +147,7 @@ export function AppLayout() {
                   )}
                   <Icon className="h-4 w-4 shrink-0" />
                   <span className="flex-1 text-left">{item.label}</span>
-                  <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform duration-200', isOpen && 'rotate-180')} />
+                  <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform duration-200', openSections[item.id] && 'rotate-180')} />
                 </button>
                 {isOpen && (
                   <div className="mt-0.5 ml-4 pl-3 border-l border-white/15 space-y-0.5 pb-1">
@@ -252,7 +253,7 @@ export function AppLayout() {
               <p className="text-xs text-indigo-300 capitalize">{user?.role?.toLowerCase()}</p>
               {user?.operatorType && (
                 <Badge variant={user.operatorType === 'CASH' ? 'success' : 'warning'} className="text-[10px] h-4 px-1.5">
-                  {user.operatorType}
+                  {getOperatorTypeDisplay(user.operatorType)}
                 </Badge>
               )}
             </div>
@@ -300,7 +301,7 @@ export function AppLayout() {
             {user?.operatorType && (
               <>
                 <Badge variant={user.operatorType === 'CASH' ? 'success' : 'warning'} className="text-xs">
-                  {user.operatorType}
+                  {getOperatorTypeDisplay(user.operatorType)}
                 </Badge>
                 <div className="h-5 w-px bg-border" />
               </>

@@ -381,7 +381,7 @@ function LedgerTable({
               <th className="text-left px-2 py-1.5 font-semibold w-20">Type</th>
               <th className="text-right px-2 py-1.5 font-semibold w-32 hidden md:table-cell">Vch No.</th>
               <th className="text-right px-2 py-1.5 font-semibold w-24">Debit</th>
-              <th className="text-right px-2 py-1.5 font-semibold w-24">Credit</th>
+              <th className="text-right px-2 py-1.5 font-semibold w-24">Platinum</th>
             </tr>
           </thead>
           <tbody>
@@ -634,8 +634,8 @@ export default function LedgerPage() {
             <div className="flex gap-1.5 flex-wrap">
               {([
                 { key: 'ALL' as const, label: 'All', icon: Users },
-                { key: 'CASH' as const, label: 'Cash', icon: Banknote },
-                { key: 'CREDIT' as const, label: 'Credit', icon: CreditCard },
+                { key: 'CASH' as const, label: 'Gold', icon: Banknote },
+                { key: 'CREDIT' as const, label: 'Platinum', icon: CreditCard },
               ]).map(({ key, label, icon: Icon }) => (
                 <Button
                   key={key}

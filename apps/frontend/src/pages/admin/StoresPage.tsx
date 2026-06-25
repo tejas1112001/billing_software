@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PageHeader } from '@/components/common/PageHeader';
+import { SearchInput } from '@/components/common/SearchInput';
 import { DataTable, ColumnDef } from '@/components/common/DataTable';
 import { Pagination } from '@/components/common/Pagination';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -26,12 +27,13 @@ type FormData = z.infer<typeof schema>;
 
 export default function StoresPage() {
   const qc = useQueryClient();
-  const { page, pageSize, setPage, setPageSize } = usePagination();
+  const { page, pageSize, setPage, setPageSize, reset } = usePagination();
+  const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<Store | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery({ queryKey: ['stores', page, pageSize], queryFn: () => storeService.list({ page, pageSize }) });
+  const { data, isLoading } = useQuery({ queryKey: ['stores', page, pageSize, search], queryFn: () => storeService.list({ page, pageSize, search: search || undefined }) });
   const { register, handleSubmit, reset: resetForm, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   const createMut = useMutation({ mutationFn: (d: FormData) => storeService.create(d), onSuccess: () => { toast.success('Store created'); qc.invalidateQueries({ queryKey: ['stores'] }); closeDialog(); }, onError: () => toast.error('Failed') });
@@ -83,6 +85,18 @@ export default function StoresPage() {
           </Button>
         } 
       />
+      
+      {/* Search */}
+      <div className="flex gap-2">
+        <SearchInput
+          placeholder="Search stores by name or city..."
+          onChange={(v) => {
+            setSearch(v);
+            reset();
+          }}
+          className="flex-1"
+        />
+      </div>
       
       <div className="rounded-lg border bg-card shadow-sm">
         <DataTable 

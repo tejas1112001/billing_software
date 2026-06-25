@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
@@ -10,15 +10,32 @@ interface SearchInputProps {
   className?: string;
 }
 
-export function SearchInput({ placeholder = 'Search...', value = '', onChange, debounceMs = 300, className }: SearchInputProps) {
-  const [localValue, setLocalValue] = useState(value);
+export function SearchInput({ 
+  placeholder = 'Search...', 
+  value, 
+  onChange, 
+  debounceMs = 300, 
+  className 
+}: SearchInputProps) {
+  const [localValue, setLocalValue] = useState(value || '');
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => { setLocalValue(value); }, [value]);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    
+    // Update local state immediately (so text appears)
+    setLocalValue(newValue);
 
-  useEffect(() => {
-    const timer = setTimeout(() => { onChange(localValue); }, debounceMs);
-    return () => clearTimeout(timer);
-  }, [localValue, debounceMs, onChange]);
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
+
+    // Set new debounced timer
+    timerRef.current = setTimeout(() => {
+      onChange(newValue);
+    }, debounceMs);
+  };
 
   return (
     <div className={`relative ${className || ''}`}>
@@ -26,7 +43,7 @@ export function SearchInput({ placeholder = 'Search...', value = '', onChange, d
       <Input
         placeholder={placeholder}
         value={localValue}
-        onChange={(e) => setLocalValue(e.target.value)}
+        onChange={handleChange}
         className="pl-9"
       />
     </div>

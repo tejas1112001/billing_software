@@ -1,125 +1,189 @@
 import { Link } from 'react-router-dom';
 import {
-  Banknote, Package, TrendingUp, ArrowLeft, ChevronRight,
-  LayoutGrid, ShoppingCart, DollarSign, BarChart2,
+  Banknote, Package, TrendingUp, LayoutGrid,
+  ArrowLeft, ChevronRight, BarChart2,
+  ShoppingCart, DollarSign, SlidersHorizontal,
+  Activity, Sparkles,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 
-const reportSections = [
+const reportCards = [
   {
     to: '/reports/cash-credit',
     icon: Banknote,
-    title: 'Cash & Credit Sales',
-    description: 'Cash sales, credit sales, and combined totals with date filters',
-    color: 'bg-blue-500/10 text-blue-600 ring-blue-500/20',
-    tags: ['Cash Sales', 'Credit Sales'],
+    title: 'Gold & Platinum Sales',
+    description:
+      'Compare Gold and Platinum operator sales side-by-side with date range filters and totals.',
+    gradient: 'from-blue-600 to-indigo-700',
+    iconBg: 'bg-blue-500/15 text-blue-500',
+    tags: ['Gold Sales', 'Platinum Sales', 'Combined'],
+    stat: { label: 'Sales channels', value: '2' },
   },
   {
     to: '/reports/purchase-quantity',
     icon: Package,
     title: 'Purchase Quantity',
-    description: 'Item-wise purchase quantities with brand, category, and store filters',
-    color: 'bg-emerald-500/10 text-emerald-600 ring-emerald-500/20',
+    description:
+      'Item-wise purchase quantities with brand, category, and store filters for inventory insight.',
+    gradient: 'from-emerald-500 to-teal-700',
+    iconBg: 'bg-emerald-500/15 text-emerald-500',
     tags: ['Purchase Qty', 'Purchase Price'],
+    stat: { label: 'Filter types', value: '3' },
   },
   {
     to: '/reports/profit',
     icon: TrendingUp,
     title: 'Profit & Loss',
-    description: 'Sales price, cost, profit margin, and P&L analysis',
-    color: 'bg-indigo-500/10 text-indigo-600 ring-indigo-500/20',
+    description:
+      'Full P&L breakdown — sales price, cost, profit margin, and analysis by product and period.',
+    gradient: 'from-violet-600 to-purple-800',
+    iconBg: 'bg-violet-500/15 text-violet-500',
     tags: ['Sales Qty', 'Sales Price', 'P&L'],
+    stat: { label: 'Metrics tracked', value: '4' },
   },
   {
     to: '/reports/product',
     icon: LayoutGrid,
     title: 'Product Report',
-    description: 'Stock history, sales, pricing, profit, and adjustment tracking',
-    color: 'bg-violet-500/10 text-violet-600 ring-violet-500/20',
-    tags: ['Stock History', 'Sales', 'Profit'],
+    description:
+      'Stock history, sales, pricing, profit, and adjustment tracking per product.',
+    gradient: 'from-amber-500 to-orange-600',
+    iconBg: 'bg-amber-500/15 text-amber-500',
+    tags: ['Stock History', 'Sales', 'Profit', 'Adjustments'],
+    stat: { label: 'Report views', value: '4' },
   },
 ];
 
-const analyticsHighlights = [
+const capabilities = [
   { icon: ShoppingCart, label: 'Sales Quantity', desc: 'Units sold by product' },
-  { icon: DollarSign, label: 'Sales Price', desc: 'Revenue breakdown' },
-  { icon: BarChart2, label: 'Advanced Filters', desc: 'Date, store, brand, category' },
+  { icon: DollarSign, label: 'Revenue Breakdown', desc: 'Sales & collection data' },
+  { icon: SlidersHorizontal, label: 'Advanced Filters', desc: 'Date, store, brand, category' },
+  { icon: Activity, label: 'Live Data', desc: 'Real-time report generation' },
 ];
 
 export default function ReportsIndex() {
   return (
-    <div className="space-y-4 sm:space-y-6 pb-6">
-      <div className="flex items-start gap-2.5">
-        <Button variant="outline" size="icon" asChild className="shrink-0 h-9 w-9 sm:h-8 sm:w-auto sm:px-3">
-          <Link to="/">
-            <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline ml-1">Dashboard</span>
+    <div className="space-y-5 sm:space-y-6 pb-6">
+
+      {/* ── Hero Banner ── */}
+      <div
+        className="relative overflow-hidden rounded-2xl px-5 py-6 sm:px-8 sm:py-8"
+        style={{
+          background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #312e81 100%)',
+          boxShadow: '0 8px 32px 0 rgba(30,27,75,0.28)',
+        }}
+      >
+        {/* Decorative circles */}
+        <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/5" />
+        <div className="pointer-events-none absolute right-32 bottom-0 h-36 w-36 rounded-full bg-white/5" />
+        <div className="pointer-events-none absolute left-1/2 -bottom-10 h-24 w-24 rounded-full bg-indigo-500/20 blur-2xl" />
+
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+          {/* Back button */}
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1.5 text-xs text-indigo-300 hover:text-white transition-colors self-start"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Dashboard
           </Link>
-        </Button>
-        <div className="min-w-0">
-          <h1 className="text-lg sm:text-2xl font-bold tracking-tight">Reports & Analytics</h1>
-          <p className="text-muted-foreground text-xs sm:text-sm mt-0.5">
-            Cash/credit sales, quantities, pricing, and profit analysis
-          </p>
+
+          <div className="sm:flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="p-1.5 rounded-lg bg-white/10 backdrop-blur-sm">
+                <BarChart2 className="h-5 w-5 text-white" />
+              </div>
+              <p className="text-xs text-indigo-300 font-medium uppercase tracking-widest">Analytics</p>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+              Reports & Analytics
+            </h1>
+            <p className="text-sm text-indigo-300/80 mt-1 max-w-md">
+              Gold/platinum sales, inventory quantities, pricing, and profit analysis — all in one place.
+            </p>
+          </div>
+
+          <div className="hidden sm:flex items-center gap-2">
+            <div className="flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
+              <Sparkles className="h-3.5 w-3.5 text-indigo-300" />
+              <span className="text-xs text-white/80 font-medium">4 Reports</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Quick highlights */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        {analyticsHighlights.map(({ icon: Icon, label, desc }) => (
-          <Card key={label} className="border shadow-sm">
-            <CardContent className="p-3 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
-                <Icon className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold">{label}</p>
-                <p className="text-xs text-muted-foreground">{desc}</p>
-              </div>
-            </CardContent>
-          </Card>
+      {/* ── Capability Highlights ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+        {capabilities.map(({ icon: Icon, label, desc }) => (
+          <div
+            key={label}
+            className="flex items-center gap-3 rounded-2xl border bg-card p-3 sm:p-4 shadow-sm"
+          >
+            <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0">
+              <Icon className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-semibold truncate">{label}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{desc}</p>
+            </div>
+          </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {reportSections.map(({ to, icon: Icon, title, description, color, tags }) => (
-          <Link key={to} to={to} className="group">
-            <Card className="h-full border shadow-sm hover:shadow-md hover:border-primary/30 transition-all active:scale-[0.99] overflow-hidden">
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className={`p-2.5 rounded-xl ring-1 shrink-0 ${color}`}>
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <h2 className="text-sm font-semibold">{title}</h2>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 group-hover:text-primary transition-colors" />
+      {/* ── Report Cards Grid ── */}
+      <div>
+        <p className="text-xs font-semibold uppercase text-muted-foreground tracking-widest mb-3">
+          Available Reports
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          {reportCards.map(({ to, icon: Icon, title, description, gradient, iconBg, tags, stat }) => (
+            <Link key={to} to={to} className="group block">
+              <div className="relative h-full overflow-hidden rounded-2xl border bg-card shadow-sm hover:shadow-lg hover:border-primary/30 transition-all duration-200 active:scale-[0.99]">
+                {/* Gradient top bar */}
+                <div className={`h-1.5 w-full bg-gradient-to-r ${gradient}`} />
+
+                <div className="p-5">
+                  {/* Header */}
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className={`p-2.5 rounded-xl ${iconBg} shrink-0`}>
+                      <Icon className="h-5 w-5" />
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{description}</p>
+                    <div className="text-right shrink-0">
+                      <p className="text-xl font-extrabold text-foreground tabular-nums">{stat.value}</p>
+                      <p className="text-[10px] text-muted-foreground">{stat.label}</p>
+                    </div>
+                  </div>
+
+                  {/* Title + description */}
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h2 className="text-base font-bold">{title}</h2>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                      {description}
+                    </p>
+                  </div>
+
+                  {/* Tags */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="text-[10px] px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium border border-border/50"
+                      >
+                        {tag}
+                      </span>
+                    ))}
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-1">
-                  {tags.map((tag) => (
-                    <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
 
-      <Card className="border-dashed bg-muted/30">
-        <CardContent className="p-4 flex items-start gap-3 text-xs sm:text-sm text-muted-foreground">
-          <LayoutGrid className="h-4 w-4 shrink-0 mt-0.5" />
-          <span>
-            All reports support responsive filters, sortable tables, charts, and pagination for fast analysis on desktop and mobile.
-          </span>
-        </CardContent>
-      </Card>
+                {/* Bottom gradient accent on hover */}
+                <div className={`absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r ${gradient} opacity-0 group-hover:opacity-100 transition-opacity`} />
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

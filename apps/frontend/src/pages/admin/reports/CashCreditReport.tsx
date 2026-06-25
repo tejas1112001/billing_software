@@ -43,13 +43,13 @@ export default function CashCreditReport() {
   };
 
   const pieData = data ? [
-    { name: 'Cash', value: data.cashSales.amount },
-    { name: 'Credit', value: data.creditSales.amount },
+    { name: 'Gold', value: data.cashSales.amount },
+    { name: 'Platinum', value: data.creditSales.amount },
   ].filter((d) => d.value > 0) : [];
 
   const barData = data ? [
-    { type: 'Cash', Sales: data.cashSales.amount, Orders: data.cashSales.orders },
-    { type: 'Credit', Sales: data.creditSales.amount, Orders: data.creditSales.orders },
+    { type: 'Gold', Sales: data.cashSales.amount, Orders: data.cashSales.orders },
+    { type: 'Platinum', Sales: data.creditSales.amount, Orders: data.creditSales.orders },
     { type: 'Total', Sales: data.totalSales.amount, Orders: data.totalSales.orders },
   ] : [];
 
@@ -86,8 +86,8 @@ export default function CashCreditReport() {
   return (
     <div className="space-y-4 pb-6">
       <ReportPageHeader
-        title="Cash and Credit"
-        description="Cash sales, credit sales, and overall totals"
+        title="Gold and Platinum"
+        description="Gold sales, platinum sales, and overall totals"
       />
 
       <ReportResponsiveFilters activeCount={activeCount} onReset={handleReset}>
@@ -100,7 +100,7 @@ export default function CashCreditReport() {
         ) : (
           <>
             <ReportKpiCard
-              label="Cash Sales"
+              label="Gold Sales"
               value={formatCurrency(data?.cashSales.amount ?? 0)}
               amount={data?.cashSales.amount ?? 0}
               sub={`${data?.cashSales.orders ?? 0} orders · ${(data?.cashSales.percentage ?? 0).toFixed(1)}%`}
@@ -108,7 +108,7 @@ export default function CashCreditReport() {
               iconClassName="bg-blue-500/10 text-blue-600 ring-blue-500/20"
             />
             <ReportKpiCard
-              label="Credit Sales"
+              label="Platinum Sales"
               value={formatCurrency(data?.creditSales.amount ?? 0)}
               amount={data?.creditSales.amount ?? 0}
               sub={`${data?.creditSales.orders ?? 0} orders · ${(data?.creditSales.percentage ?? 0).toFixed(1)}%`}

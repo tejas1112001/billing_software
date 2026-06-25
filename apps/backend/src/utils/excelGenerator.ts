@@ -44,7 +44,7 @@ export async function generateLedgerExcel(entries: LedgerEntryRow[]): Promise<Bu
     { header: 'Voucher Type', key: 'voucherType', width: 14 },
     { header: 'Bill/Receipt No.', key: 'billSerialNumber', width: 22 },
     { header: 'Debit (₹)', key: 'debit', width: 14 },
-    { header: 'Credit (₹)', key: 'credit', width: 14 },
+    { header: 'Platinum (₹)', key: 'credit', width: 14 },
     { header: 'Closing Balance (₹)', key: 'closingBalance', width: 20 },
   ];
 

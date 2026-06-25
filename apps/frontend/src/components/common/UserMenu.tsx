@@ -2,6 +2,7 @@ import { LogOut, User, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { authService } from '@/services/authService';
+import { getOperatorTypeDisplay } from '@/utils/operatorTypeDisplay';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -88,7 +89,7 @@ export function UserMenu({ variant = 'default', className }: UserMenuProps) {
                   variant={user.operatorType === 'CASH' ? 'success' : 'warning'}
                   className="text-xs"
                 >
-                  {user.operatorType}
+                  {getOperatorTypeDisplay(user.operatorType)}
                 </Badge>
               </div>
             )}

@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PageHeader } from '@/components/common/PageHeader';
+import { SearchInput } from '@/components/common/SearchInput';
 import { DataTable, ColumnDef } from '@/components/common/DataTable';
 import { Pagination } from '@/components/common/Pagination';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -19,6 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Switch } from '@/components/ui/switch';
 import { userService } from '@/services/userService';
 import { usePagination } from '@/hooks/usePagination';
+import { getOperatorTypeDisplay } from '@/utils/operatorTypeDisplay';
 import type { AppUser, Role, OperatorType } from '@/types';
 
 const createSchema = z.object({
@@ -45,15 +47,16 @@ type ResetForm = z.infer<typeof resetSchema>;
 
 export default function UsersPage() {
   const qc = useQueryClient();
-  const { page, pageSize, setPage, setPageSize } = usePagination();
+  const { page, pageSize, setPage, setPageSize, reset } = usePagination();
+  const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState<AppUser | null>(null);
   const [resetUser, setResetUser] = useState<AppUser | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['users', page, pageSize],
-    queryFn: () => userService.list({ page, pageSize }),
+    queryKey: ['users', page, pageSize, search],
+    queryFn: () => userService.list({ page, pageSize, search: search || undefined }),
   });
 
   const createForm = useForm<CreateForm>({ resolver: zodResolver(createSchema), defaultValues: { role: 'OPERATOR' } });
@@ -109,7 +112,7 @@ export default function UsersPage() {
     {
       key: 'operatorType', header: 'Type',
       cell: (r) => r.operatorType
-        ? <Badge variant={r.operatorType === 'CASH' ? 'success' : 'warning'}>{r.operatorType}</Badge>
+        ? <Badge variant={r.operatorType === 'CASH' ? 'success' : 'warning'}>{getOperatorTypeDisplay(r.operatorType)}</Badge>
         : <span className="text-muted-foreground text-xs">—</span>,
     },
     {
@@ -153,6 +156,18 @@ export default function UsersPage() {
           </Button>
         }
       />
+
+      {/* Search */}
+      <div className="flex gap-2">
+        <SearchInput
+          placeholder="Search username..."
+          onChange={(v) => {
+            setSearch(v);
+            reset();
+          }}
+          className="flex-1"
+        />
+      </div>
 
       <div className="rounded-lg border bg-card shadow-sm">
         <DataTable
@@ -206,8 +221,8 @@ export default function UsersPage() {
                 <Select value={createForm.watch('operatorType') ?? ''} onValueChange={(v) => createForm.setValue('operatorType', v as OperatorType)}>
                   <SelectTrigger className="mt-1 h-10"><SelectValue placeholder="Select type" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="CASH">Cash</SelectItem>
-                    <SelectItem value="CREDIT">Credit</SelectItem>
+                    <SelectItem value="CASH">Gold</SelectItem>
+                    <SelectItem value="CREDIT">Platinum</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -245,8 +260,8 @@ export default function UsersPage() {
                 <Select value={editForm.watch('operatorType') ?? ''} onValueChange={(v) => editForm.setValue('operatorType', v ? v as OperatorType : null)}>
                   <SelectTrigger className="mt-1 h-10"><SelectValue placeholder="Select type" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="CASH">Cash</SelectItem>
-                    <SelectItem value="CREDIT">Credit</SelectItem>
+                    <SelectItem value="CASH">Gold</SelectItem>
+                    <SelectItem value="CREDIT">Platinum</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

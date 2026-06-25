@@ -334,7 +334,7 @@ export function generateLedgerPdf(
   doc.text('Voucher', MARGIN + 250, colY, { width: 70 });
   doc.text('Bill/Receipt No.', MARGIN + 325, colY, { width: 100 });
   doc.text('Debit', MARGIN + 430, colY, { width: 90, align: 'right' });
-  doc.text('Credit', MARGIN + 525, colY, { width: 90, align: 'right' });
+  doc.text('Platinum', MARGIN + 525, colY, { width: 90, align: 'right' });
   doc.text('Balance', MARGIN + 620, colY, { width: 110, align: 'right' });
 
   doc.fillColor('#000000');
@@ -427,8 +427,8 @@ export function generateStockReportPdf(
   doc.text('Brand', MARGIN + 235, colY, { width: 100 });
   doc.text('Category', MARGIN + 340, colY, { width: 120 });
   doc.text('MRP', MARGIN + 465, colY, { width: 70, align: 'right' });
-  doc.text('Cash Price', MARGIN + 540, colY, { width: 75, align: 'right' });
-  doc.text('Credit Price', MARGIN + 620, colY, { width: 75, align: 'right' });
+  doc.text('Gold Price', MARGIN + 540, colY, { width: 75, align: 'right' });
+  doc.text('Platinum Price', MARGIN + 620, colY, { width: 75, align: 'right' });
   doc.text('Qty', MARGIN + 700, colY, { width: 30, align: 'right' });
 
   doc.fillColor('#000000');

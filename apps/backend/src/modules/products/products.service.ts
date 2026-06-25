@@ -44,15 +44,34 @@ export async function list(query: Request['query']) {
   const categoryId = query.categoryId ? String(query.categoryId) : undefined;
   const sortOrder = query.sortOrder === 'desc' ? 'desc' : 'asc';
   const isNewArrival = query.isNewArrival === 'true' ? true : undefined;
-
   const inStock = query.inStock === 'true' ? true : undefined;
 
+  // Build where clause with proper structure
   const where: Record<string, unknown> = {};
-  if (search) where.modelName = { contains: search, mode: 'insensitive' };
-  if (brandId) where.brandId = brandId;
-  if (categoryId) where.categoryId = categoryId;
-  if (isNewArrival !== undefined) where.isNewArrival = isNewArrival;
-  if (inStock) where.availableQty = { gt: 0 };
+  
+  // Build AND conditions for non-search filters
+  const andConditions: Array<Record<string, unknown>> = [];
+  
+  if (brandId) andConditions.push({ brandId });
+  if (categoryId) andConditions.push({ categoryId });
+  if (isNewArrival !== undefined) andConditions.push({ isNewArrival });
+  if (inStock) andConditions.push({ availableQty: { gt: 0 } });
+  
+  // Add search OR conditions
+  if (search) {
+    andConditions.push({
+      OR: [
+        { modelName: { contains: search, mode: 'insensitive' } },
+        { brand: { name: { contains: search, mode: 'insensitive' } } },
+        { category: { name: { contains: search, mode: 'insensitive' } } },
+      ],
+    });
+  }
+  
+  // Combine all conditions with AND
+  if (andConditions.length > 0) {
+    where.AND = andConditions;
+  }
 
   const [data, total] = await Promise.all([
     prisma.product.findMany({

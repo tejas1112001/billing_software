@@ -10,10 +10,12 @@ export async function listUsers(query: Request['query']) {
   const { page, pageSize, skip, take } = buildPaginationArgs(query);
   const role = query.role ? (String(query.role) as Role) : undefined;
   const operatorType = query.operatorType ? (String(query.operatorType) as OperatorType) : undefined;
+  const search = query.search ? String(query.search) : undefined;
 
   const where: Record<string, unknown> = {};
   if (role) where.role = role;
   if (operatorType) where.operatorType = operatorType;
+  if (search) where.username = { contains: search, mode: 'insensitive' };
 
   const [data, total] = await Promise.all([
     prisma.user.findMany({
