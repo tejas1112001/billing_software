@@ -386,6 +386,130 @@ export function generateLedgerPdf(
   return doc;
 }
 
+interface ReceiptData {
+  receiptNumber: string;
+  amount: number | string;
+  date: Date | string;
+  createdAt?: Date | string;
+  paymentMode?: string;
+  store: {
+    name: string;
+    address: string;
+    city: string;
+    mobile: string;
+    email: string;
+  };
+  user?: { username: string } | null;
+  paymentMethod?: { name: string } | null;
+}
+
+export async function generateReceiptPdf(receipt: ReceiptData): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({
+        margin: 50,
+        size: [400, 560],
+        autoFirstPage: true,
+        bufferPages: true,
+        compress: true,
+      });
+
+      const chunks: Buffer[] = [];
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const PAGE_W = doc.page.width;
+      const MARGIN = 40;
+      const CONTENT_W = PAGE_W - MARGIN * 2;
+
+      // ── Header ──
+      const HEADER_H = 100;
+      doc.rect(0, 0, PAGE_W, HEADER_H).fill(BRAND);
+
+      doc.fontSize(18)
+        .font('Helvetica-Bold')
+        .fillColor(WHITE)
+        .text(receipt.store.name, MARGIN, 20, { align: 'center', width: CONTENT_W });
+
+      doc.fontSize(8.5)
+        .font('Helvetica')
+        .fillColor(BRAND_LIGHT)
+        .text(`${receipt.store.address}, ${receipt.store.city}`, MARGIN, 46, { align: 'center', width: CONTENT_W })
+        .text(`Mobile: ${receipt.store.mobile}  ·  ${receipt.store.email}`, MARGIN, 59, { align: 'center', width: CONTENT_W });
+
+      // "PAYMENT RECEIPT" badge
+      doc.fontSize(9).font('Helvetica-Bold').fillColor(WHITE)
+        .text('PAYMENT RECEIPT', MARGIN, 76, { align: 'center', width: CONTENT_W });
+
+      // ── Receipt Meta Box ──
+      const META_Y = HEADER_H + 16;
+      doc.roundedRect(MARGIN, META_Y, CONTENT_W, 54, 4).fill('#F9FAFB').stroke(BORDER_GREY);
+
+      const metaLeft = [
+        { label: 'Receipt No.', value: receipt.receiptNumber },
+        { label: 'Operator', value: receipt.user?.username ?? '—' },
+      ];
+      const metaRight = [
+        { label: 'Date', value: formatDate(receipt.date) },
+        { label: 'Payment Method', value: receipt.paymentMethod?.name ?? receipt.paymentMode ?? '—' },
+      ];
+
+      const halfW = CONTENT_W / 2 - 10;
+      metaLeft.forEach((f, i) => {
+        const y = META_Y + 8 + i * 22;
+        doc.fontSize(7.5).font('Helvetica').fillColor(TEXT_GREY).text(f.label, MARGIN + 10, y);
+        doc.fontSize(9).font('Helvetica-Bold').fillColor(TEXT_DARK).text(f.value, MARGIN + 10, y + 10, { width: halfW });
+      });
+      metaRight.forEach((f, i) => {
+        const y = META_Y + 8 + i * 22;
+        const x = MARGIN + CONTENT_W / 2 + 4;
+        doc.fontSize(7.5).font('Helvetica').fillColor(TEXT_GREY).text(f.label, x, y);
+        doc.fontSize(9).font('Helvetica-Bold').fillColor(TEXT_DARK).text(f.value, x, y + 10, { width: halfW });
+      });
+
+      // ── Divider ──
+      const DIV_Y = META_Y + 66;
+      doc.strokeColor(BORDER_GREY).lineWidth(1)
+        .moveTo(MARGIN, DIV_Y).lineTo(MARGIN + CONTENT_W, DIV_Y).stroke();
+
+      // ── Amount Received Block ──
+      const AMT_Y = DIV_Y + 16;
+      doc.fontSize(9).font('Helvetica').fillColor(TEXT_GREY)
+        .text('Amount Received', MARGIN, AMT_Y, { align: 'center', width: CONTENT_W });
+
+      const amtBoxY = AMT_Y + 16;
+      doc.roundedRect(MARGIN, amtBoxY, CONTENT_W, 56, 6).fill(BRAND);
+      doc.fontSize(26).font('Helvetica-Bold').fillColor(WHITE)
+        .text(`Rs. ${formatCurrency(receipt.amount)}`, MARGIN, amtBoxY + 14, { align: 'center', width: CONTENT_W });
+
+      // ── Confirmation stamp ──
+      const STAMP_Y = amtBoxY + 72;
+      doc.roundedRect(MARGIN, STAMP_Y, CONTENT_W, 32, 4).fill('#ECFDF5');
+      doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#059669')
+        .text('Payment Received Successfully', MARGIN, STAMP_Y + 10, { align: 'center', width: CONTENT_W });
+
+      // ── Footer ──
+      const FOOT_Y = STAMP_Y + 48;
+      doc.strokeColor(BORDER_GREY).lineWidth(0.5)
+        .moveTo(MARGIN, FOOT_Y).lineTo(MARGIN + CONTENT_W, FOOT_Y).stroke();
+
+      doc.fontSize(8).font('Helvetica-Oblique').fillColor(TEXT_GREY)
+        .text('Thank you for your payment!', MARGIN, FOOT_Y + 10, { align: 'center', width: CONTENT_W });
+
+      doc.fontSize(7).font('Helvetica').fillColor(TEXT_GREY)
+        .text('This is a computer-generated receipt and does not require a signature.', MARGIN, FOOT_Y + 24, {
+          align: 'center',
+          width: CONTENT_W,
+        });
+
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
 export function generateStockReportPdf(
   rows: ProductRow[],
   groupBy: string,

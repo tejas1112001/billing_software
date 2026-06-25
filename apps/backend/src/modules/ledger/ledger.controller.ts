@@ -26,12 +26,11 @@ export async function upsertOpeningBalance(req: Request, res: Response, next: Ne
 
 export async function exportLedgerPdf(req: Request, res: Response, next: NextFunction) {
   try {
-    const entries = await ledgerService.getAllEntries(req.params.storeId, req.query);
-    const ob = await ledgerService.upsertOpeningBalance(req.params.storeId, 0).catch(() => ({ amount: 0 }));
+    const result = await ledgerService.getLedger(req.params.storeId, { ...req.query, pageSize: '100000', page: '1' } as any);
     const doc = generateLedgerPdf(
       req.params.storeId,
-      entries as unknown as Parameters<typeof generateLedgerPdf>[1],
-      Number(ob.amount),
+      result.data as unknown as Parameters<typeof generateLedgerPdf>[1],
+      result.openingBalance,
       { from: String(req.query.dateFrom || ''), to: String(req.query.dateTo || '') }
     );
     res.setHeader('Content-Type', 'application/pdf');
@@ -43,8 +42,8 @@ export async function exportLedgerPdf(req: Request, res: Response, next: NextFun
 
 export async function exportLedgerExcel(req: Request, res: Response, next: NextFunction) {
   try {
-    const entries = await ledgerService.getAllEntries(req.params.storeId, req.query);
-    const buffer = await generateLedgerExcel(entries as unknown as Parameters<typeof generateLedgerExcel>[0]);
+    const result = await ledgerService.getLedger(req.params.storeId, { ...req.query, pageSize: '100000', page: '1' } as any);
+    const buffer = await generateLedgerExcel(result.data as unknown as Parameters<typeof generateLedgerExcel>[0], result.openingBalance);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="ledger-${req.params.storeId}.xlsx"`);
     res.send(buffer);

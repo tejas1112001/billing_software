@@ -103,7 +103,7 @@ export default function App() {
           </Routes>
         </Suspense>
       </BrowserRouter>
-      <Toaster richColors position="top-right" />
+      <Toaster richColors position="top-right" closeButton />
     </QueryClientProvider>
   );
 }

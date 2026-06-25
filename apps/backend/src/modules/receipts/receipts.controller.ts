@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import * as receiptsService from './receipts.service';
+import { generateReceiptPdf } from '../../utils/pdfGenerator';
 import { AppError } from '../../middleware/errorHandler';
 import { resolveAccessScope } from '../../utils/accessScope';
 
@@ -68,4 +69,22 @@ export async function deleteReceipt(req: Request, res: Response, next: NextFunct
     const receipt = await receiptsService.deleteReceipt(req.params.id, req.user!.id, scope);
     res.json(receipt);
   } catch (e) { next(e); }
+}
+
+export async function downloadReceiptPdf(req: Request, res: Response, next: NextFunction) {
+  try {
+    const scope = await resolveAccessScope(req.user!.id, req.user!.role);
+    const receipt = await receiptsService.getById(req.params.id, scope);
+    if (!receipt || !receipt.store) throw new AppError(404, 'Receipt not found');
+
+    const pdfBuffer = await generateReceiptPdf(receipt as unknown as Parameters<typeof generateReceiptPdf>[0]);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="receipt-${receipt.receiptNumber}.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length.toString());
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.send(pdfBuffer);
+  } catch (e) {
+    next(e);
+  }
 }

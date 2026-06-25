@@ -136,9 +136,9 @@ export function AppLayout() {
                   type="button"
                   onClick={() => toggleSection(item.id)}
                   className={cn(
-                    'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors relative min-h-[44px]',
+                    'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative min-h-[44px]',
                     active
-                      ? 'bg-[#4f46e5]/90 text-white'
+                      ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md'
                       : 'text-indigo-200 hover:bg-white/10 hover:text-white'
                   )}
                 >
@@ -150,7 +150,7 @@ export function AppLayout() {
                   <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform duration-200', openSections[item.id] && 'rotate-180')} />
                 </button>
                 {isOpen && (
-                  <div className="mt-0.5 ml-4 pl-3 border-l border-white/15 space-y-0.5 pb-1">
+                  <div className="mt-1 ml-4 pl-3 border-l border-white/10 space-y-1 pb-1">
                     {item.children.map((child) => (
                       <NavLink
                         key={child.to}
@@ -158,10 +158,10 @@ export function AppLayout() {
                         end={child.end}
                         className={({ isActive }) =>
                           cn(
-                            'flex items-center gap-2 px-3 py-2.5 rounded-md text-sm font-medium transition-colors min-h-[40px]',
+                            'flex items-center gap-2 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-200 min-h-[40px]',
                             isActive
-                              ? 'bg-[#4f46e5] text-white shadow-sm'
-                              : 'text-indigo-200 hover:bg-white/10 hover:text-white'
+                              ? 'bg-indigo-600 text-white shadow-sm'
+                              : 'text-indigo-200 hover:bg-white/5 hover:text-white'
                           )
                         }
                       >
@@ -181,9 +181,9 @@ export function AppLayout() {
               end={item.end}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors relative min-h-[44px]',
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative min-h-[44px]',
                   isActive
-                    ? 'bg-[#4f46e5] text-white shadow-sm'
+                    ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md'
                     : 'text-indigo-200 hover:bg-white/10 hover:text-white'
                 )
               }
@@ -207,9 +207,9 @@ export function AppLayout() {
               type="button"
               onClick={() => toggleSection('reports')}
               className={cn(
-                'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors min-h-[44px]',
+                'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 min-h-[44px]',
                 location.pathname.startsWith('/reports')
-                  ? 'bg-white/10 text-white'
+                  ? 'bg-white/10 text-white shadow-sm'
                   : 'text-indigo-200 hover:bg-white/10 hover:text-white'
               )}
             >
@@ -218,7 +218,7 @@ export function AppLayout() {
               <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform duration-200', openSections.reports && 'rotate-180')} />
             </button>
             {openSections.reports && (
-              <div className="mt-0.5 ml-4 pl-3 border-l border-white/15 space-y-0.5 pb-1">
+              <div className="mt-1 ml-4 pl-3 border-l border-white/10 space-y-1 pb-1">
                 {adminReportItems.map(({ to, label, end }) => (
                   <NavLink
                     key={to}
@@ -226,10 +226,10 @@ export function AppLayout() {
                     end={end}
                     className={({ isActive }) =>
                       cn(
-                        'flex items-center gap-2 px-3 py-2.5 rounded-md text-sm font-medium transition-colors min-h-[40px]',
+                        'flex items-center gap-2 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-200 min-h-[40px]',
                         isActive
-                          ? 'bg-[#4f46e5] text-white'
-                          : 'text-indigo-200 hover:bg-white/10 hover:text-white'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-indigo-200 hover:bg-white/5 hover:text-white'
                       )
                     }
                   >
@@ -278,12 +278,12 @@ export function AppLayout() {
       </aside>
 
       <div className={cn(
-        'fixed inset-0 z-50 lg:hidden transition-opacity duration-300',
+        'fixed inset-0 z-50 lg:hidden transition-all duration-300',
         sidebarOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
       )}>
-        <div className="absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300" onClick={() => setSidebarOpen(false)} />
         <aside className={cn(
-          'absolute left-0 top-0 h-full w-[min(280px,85vw)] flex flex-col bg-[#1e1b4b] border-r border-[#e5e3fb] z-10 transition-transform duration-300 ease-out shadow-xl',
+          'absolute left-0 top-0 h-full w-[min(290px,85vw)] flex flex-col bg-[#1e1b4b] border-r border-[#e5e3fb] z-10 transition-transform duration-350 ease-out shadow-2xl',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}>
           <SidebarContent />
@@ -297,19 +297,19 @@ export function AppLayout() {
           </Button>
           <span className="text-sm font-semibold lg:hidden text-primary truncate">Software</span>
           <div className="flex-1" />
-          <div className="hidden sm:flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {user?.operatorType && (
-              <>
-                <Badge variant={user.operatorType === 'CASH' ? 'success' : 'warning'} className="text-xs">
-                  {getOperatorTypeDisplay(user.operatorType)}
-                </Badge>
-                <div className="h-5 w-px bg-border" />
-              </>
+              <Badge variant={user.operatorType === 'CASH' ? 'success' : 'warning'} className="text-[10px] sm:text-xs px-2 py-0.5 font-semibold">
+                {getOperatorTypeDisplay(user.operatorType)}
+              </Badge>
             )}
-            <UserMenu variant="default" />
-          </div>
-          <div className="sm:hidden">
-            <UserMenu variant="compact" />
+            <div className="h-5 w-px bg-[#e5e3fb] mx-1 shrink-0" />
+            <div className="hidden sm:block">
+              <UserMenu variant="default" />
+            </div>
+            <div className="sm:hidden">
+              <UserMenu variant="compact" />
+            </div>
           </div>
         </header>
 

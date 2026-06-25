@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Eye, Pencil, Trash2, ArrowUpDown, Receipt as ReceiptIcon } from 'lucide-react';
+import { Eye, Pencil, Trash2, ArrowUpDown, Receipt as ReceiptIcon, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/common/PageHeader';
 import { DataTable, ColumnDef } from '@/components/common/DataTable';
@@ -156,6 +156,9 @@ export default function GeneratedReceiptsPage() {
       header: 'Actions',
       cell: (r) => (
         <div className="flex gap-1">
+          <Button size="sm" variant="ghost" title="Download PDF" onClick={() => receiptService.downloadPdf(r.id, r.receiptNumber)}>
+            <Download className="h-4 w-4" />
+          </Button>
           <Button size="sm" variant="ghost" title="View" onClick={() => setViewId(r.id)}>
             <Eye className="h-4 w-4" />
           </Button>
@@ -222,16 +225,19 @@ export default function GeneratedReceiptsPage() {
               </div>
               <p className="text-sm text-muted-foreground">{r.store?.name}</p>
               {isAdmin && r.user && (
-                <p className="text-xs">By: {r.user.username}</p>
+                <p className="text-xs text-muted-foreground">By: {r.user.username}</p>
               )}
-              <div className="flex gap-2 pt-1">
-                <Button size="sm" variant="outline" className="flex-1" onClick={() => setViewId(r.id)}>
-                  <Eye className="h-4 w-4 mr-1" /> View
+              <div className="grid grid-cols-4 gap-2 pt-1.5">
+                <Button size="sm" variant="outline" className="h-9 w-full flex items-center justify-center p-0 shadow-sm" onClick={() => receiptService.downloadPdf(r.id, r.receiptNumber)} title="Download PDF">
+                  <Download className="h-4 w-4 text-muted-foreground" />
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => openEdit(r)}>
-                  <Pencil className="h-4 w-4" />
+                <Button size="sm" variant="outline" className="h-9 w-full flex items-center justify-center p-0 shadow-sm" onClick={() => setViewId(r.id)} title="View receipt">
+                  <Eye className="h-4 w-4 text-muted-foreground" />
                 </Button>
-                <Button size="sm" variant="outline" className="text-destructive" onClick={() => setDeleteId(r.id)}>
+                <Button size="sm" variant="outline" className="h-9 w-full flex items-center justify-center p-0 shadow-sm" onClick={() => openEdit(r)} title="Edit receipt">
+                  <Pencil className="h-4 w-4 text-muted-foreground" />
+                </Button>
+                <Button size="sm" variant="outline" className="h-9 w-full flex items-center justify-center p-0 shadow-sm text-destructive hover:bg-destructive/10" onClick={() => setDeleteId(r.id)} title="Delete receipt">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
@@ -271,14 +277,25 @@ export default function GeneratedReceiptsPage() {
           {loadingView || !viewReceipt ? (
             <p className="text-sm text-muted-foreground py-4">Loading...</p>
           ) : (
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div><p className="text-xs text-muted-foreground">Receipt No.</p><p className="font-semibold">{viewReceipt.receiptNumber}</p></div>
-              <div><p className="text-xs text-muted-foreground">Date</p><p className="font-semibold">{formatDate(viewReceipt.date)}</p></div>
-              <div><p className="text-xs text-muted-foreground">Store</p><p className="font-semibold">{viewReceipt.store?.name}</p></div>
-              <div><p className="text-xs text-muted-foreground">Amount</p><p className="font-bold text-emerald-600">{formatCurrency(viewReceipt.amount)}</p></div>
-              {viewReceipt.user && (
-                <div className="col-span-2"><p className="text-xs text-muted-foreground">Created By</p><p className="font-semibold">{viewReceipt.user.username}</p></div>
-              )}
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><p className="text-xs text-muted-foreground">Receipt No.</p><p className="font-semibold">{viewReceipt.receiptNumber}</p></div>
+                <div><p className="text-xs text-muted-foreground">Date</p><p className="font-semibold">{formatDate(viewReceipt.date)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Store</p><p className="font-semibold">{viewReceipt.store?.name}</p></div>
+                <div><p className="text-xs text-muted-foreground">Amount</p><p className="font-bold text-emerald-600">{formatCurrency(viewReceipt.amount)}</p></div>
+                {viewReceipt.user && (
+                  <div className="col-span-2"><p className="text-xs text-muted-foreground">Created By</p><p className="font-semibold">{viewReceipt.user.username}</p></div>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full h-9"
+                onClick={() => receiptService.downloadPdf(viewReceipt.id, viewReceipt.receiptNumber)}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download PDF
+              </Button>
             </div>
           )}
         </DialogContent>

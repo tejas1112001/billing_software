@@ -280,20 +280,20 @@ export default function GeneratedBillsPage() {
               </div>
               <p className="text-sm text-muted-foreground truncate">{order.store?.name}</p>
               {isAdmin && order.user && (
-                <p className="text-xs">By: {order.user.username}</p>
+                <p className="text-xs text-muted-foreground">By: {order.user.username}</p>
               )}
-              <p className="text-xs text-muted-foreground">{order.itemCount ?? 0} items</p>
-              <div className="flex gap-2 pt-1 flex-wrap">
-                <Button size="sm" variant="outline" className="flex-1 min-w-[80px]" onClick={() => openView(order)}>
-                  <Eye className="h-4 w-4 mr-1" /> View
+              <p className="text-xs text-muted-foreground font-medium">{order.itemCount ?? 0} items</p>
+              <div className="grid grid-cols-4 gap-2 pt-1.5">
+                <Button size="sm" variant="outline" className="h-9 w-full flex items-center justify-center p-0 shadow-sm" onClick={() => openView(order)} title="View bill">
+                  <Eye className="h-4 w-4 text-muted-foreground" />
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => openEdit(order)}>
-                  <Pencil className="h-4 w-4" />
+                <Button size="sm" variant="outline" className="h-9 w-full flex items-center justify-center p-0 shadow-sm" onClick={() => openEdit(order)} title="Edit bill">
+                  <Pencil className="h-4 w-4 text-muted-foreground" />
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => handleDownload(order)}>
-                  <Download className="h-4 w-4" />
+                <Button size="sm" variant="outline" className="h-9 w-full flex items-center justify-center p-0 shadow-sm" onClick={() => handleDownload(order)} title="Download PDF">
+                  <Download className="h-4 w-4 text-muted-foreground" />
                 </Button>
-                <Button size="sm" variant="outline" className="text-destructive" onClick={() => setDeleteId(order.id)}>
+                <Button size="sm" variant="outline" className="h-9 w-full flex items-center justify-center p-0 shadow-sm text-destructive hover:bg-destructive/10" onClick={() => setDeleteId(order.id)} title="Delete bill">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>

@@ -98,7 +98,7 @@ function AdminKpiCard({
     <Wrapper
       type={onClick ? 'button' : undefined}
       onClick={onClick}
-      className={`relative overflow-hidden rounded-2xl p-4 sm:p-5 flex flex-col gap-3 w-full text-left ${gradient} ${onClick ? 'hover:opacity-90 active:scale-[0.98] transition-transform cursor-pointer' : ''}`}
+      className={`relative overflow-hidden rounded-2xl p-3 sm:p-5 flex flex-col gap-2 sm:gap-3 w-full text-left ${gradient} ${onClick ? 'hover:opacity-90 active:scale-[0.98] transition-transform cursor-pointer' : ''}`}
       style={{ boxShadow: '0 4px 24px 0 rgba(80,70,220,0.12)' }}
     >
       {/* Decorative circles */}
@@ -106,11 +106,11 @@ function AdminKpiCard({
       <div className="pointer-events-none absolute right-10 -bottom-6 h-16 w-16 rounded-full bg-white/10" />
 
       <div className="relative z-10 flex items-center justify-between">
-        <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-widest text-white/70 leading-tight">
+        <p className="text-[9px] sm:text-xs font-semibold uppercase tracking-widest text-white/70 leading-tight pr-1">
           {label}
         </p>
-        <div className="relative p-1.5 rounded-lg bg-white/20 backdrop-blur-sm shrink-0">
-          <Icon className="h-4 w-4 text-white" />
+        <div className="relative p-1 sm:p-1.5 rounded-lg bg-white/20 backdrop-blur-sm shrink-0">
+          <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white" />
           {pulse && (
             <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-300 opacity-75" />
@@ -121,9 +121,9 @@ function AdminKpiCard({
       </div>
 
       <div className="relative z-10">
-        <p className="text-2xl sm:text-3xl font-bold text-white tabular-nums leading-none">{value}</p>
+        <p className="text-xl sm:text-3xl font-bold text-white tabular-nums leading-none break-all">{value}</p>
         {sub && (
-          <p className="text-[10px] sm:text-xs text-white/60 mt-1 flex items-center gap-1">
+          <p className="text-[9px] sm:text-xs text-white/60 mt-1 flex items-center gap-1">
             {sub}
             {onClick && <ChevronRight className="h-3 w-3" />}
           </p>
@@ -215,35 +215,29 @@ export default function AdminDashboard() {
     <div className="space-y-4 sm:space-y-5 pb-4">
 
       {/* ── Hero Header ── */}
-      <div
-        className="relative overflow-hidden rounded-2xl px-5 py-5 sm:px-7 sm:py-6"
-        style={{
-          background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%)',
-          boxShadow: '0 8px 32px 0 rgba(30,27,75,0.30)',
-        }}
-      >
-        <div className="pointer-events-none absolute -right-12 -top-12 h-56 w-56 rounded-full bg-white/5" />
-        <div className="pointer-events-none absolute right-24 bottom-0 h-32 w-32 rounded-full bg-white/5" />
+      <div className="relative overflow-hidden rounded-2xl px-5 py-5 sm:px-7 sm:py-6 border bg-card shadow-sm">
+        <div className="pointer-events-none absolute -right-12 -top-12 h-56 w-56 rounded-full bg-primary/5" />
+        <div className="pointer-events-none absolute right-24 bottom-0 h-32 w-32 rounded-full bg-primary/5" />
         <div className="relative z-10 flex items-center justify-between gap-4">
           <div>
-            <p className="text-xs text-indigo-300 font-medium mb-0.5">Admin Dashboard</p>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">Business Overview</h1>
-            <p className="text-xs text-indigo-300/80 mt-1">{today}</p>
+            <p className="text-xs text-muted-foreground font-medium mb-0.5">Admin Dashboard</p>
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight">Business Overview</h1>
+            <p className="text-xs text-muted-foreground mt-1">{today}</p>
           </div>
           <div className="hidden sm:flex items-center gap-2 shrink-0">
-            <div className="flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
-              <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs text-white/80 font-medium">Live</span>
+            <div className="flex items-center gap-1.5 rounded-xl bg-muted px-3 py-2">
+              <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-xs font-medium">Live</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* ── 4 KPI Cards ── */}
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {loadingStats ? (
           Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-[110px] sm:h-[130px] rounded-2xl" />
+            <Skeleton key={i} className="h-[95px] sm:h-[125px] rounded-2xl animate-pulse" />
           ))
         ) : (
           <>
@@ -257,14 +251,14 @@ export default function AdminDashboard() {
             <AdminKpiCard
               label="Sales Today"
               value={salesKpi.mobile}
-              sub={formatCurrency(salesToday)}
+              sub={salesKpi.mobile !== salesKpi.full ? salesKpi.full : 'Today\'s sales'}
               icon={TrendingUp}
               gradient="bg-gradient-to-br from-indigo-600 to-violet-700"
             />
             <AdminKpiCard
               label="Collected Today"
               value={collectedKpi.mobile}
-              sub={formatCurrency(collectedToday)}
+              sub={collectedKpi.mobile !== collectedKpi.full ? collectedKpi.full : 'Today\'s collection'}
               icon={Wallet}
               gradient="bg-gradient-to-br from-emerald-500 to-teal-700"
             />

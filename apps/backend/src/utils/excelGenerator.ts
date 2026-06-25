@@ -33,7 +33,7 @@ const HEADER_FONT: Partial<ExcelJS.Font> = {
 
 const CURRENCY_FORMAT = '#,##0.00';
 
-export async function generateLedgerExcel(entries: LedgerEntryRow[]): Promise<Buffer> {
+export async function generateLedgerExcel(entries: LedgerEntryRow[], openingBalance: number = 0): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Billing Software';
   const sheet = workbook.addWorksheet('Ledger');
@@ -44,7 +44,7 @@ export async function generateLedgerExcel(entries: LedgerEntryRow[]): Promise<Bu
     { header: 'Voucher Type', key: 'voucherType', width: 14 },
     { header: 'Bill/Receipt No.', key: 'billSerialNumber', width: 22 },
     { header: 'Debit (₹)', key: 'debit', width: 14 },
-    { header: 'Platinum (₹)', key: 'credit', width: 14 },
+    { header: 'Credit (₹)', key: 'credit', width: 14 },
     { header: 'Closing Balance (₹)', key: 'closingBalance', width: 20 },
   ];
 
@@ -57,18 +57,69 @@ export async function generateLedgerExcel(entries: LedgerEntryRow[]): Promise<Bu
   });
   headerRow.height = 22;
 
+  let totalDebit = 0;
+  let totalCredit = 0;
+
   for (const entry of entries) {
     const isDebit = entry.voucherType === 'ORDER';
+    const amount = Number(entry.amount);
+    if (isDebit) totalDebit += amount;
+    else totalCredit += amount;
+
     sheet.addRow({
       date: new Date(entry.date).toLocaleDateString('en-IN'),
       customerName: entry.customerName,
       voucherType: isDebit ? 'Order' : 'Receipt',
       billSerialNumber: entry.billSerialNumber || '',
-      debit: isDebit ? Number(entry.amount) : '',
-      credit: !isDebit ? Number(entry.amount) : '',
+      debit: isDebit ? amount : '',
+      credit: !isDebit ? amount : '',
       closingBalance: entry.closingBalance ?? 0,
     });
   }
+
+  const closingBalance = openingBalance + totalDebit - totalCredit;
+
+  // Add empty row for spacing
+  sheet.addRow({});
+
+  // Add Summary Rows matching UI
+  const summaryFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+  const summaryFont: Partial<ExcelJS.Font> = { bold: true };
+
+  const obRow = sheet.addRow({
+    date: 'Opening Bal.',
+    customerName: '',
+    voucherType: '',
+    billSerialNumber: '',
+    debit: '',
+    credit: '',
+    closingBalance: openingBalance,
+  });
+  obRow.font = summaryFont;
+  obRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } }; // light blue
+
+  const totalRow = sheet.addRow({
+    date: 'Total',
+    customerName: '',
+    voucherType: '',
+    billSerialNumber: '',
+    debit: totalDebit,
+    credit: totalCredit,
+    closingBalance: '',
+  });
+  totalRow.font = summaryFont;
+
+  const cbRow = sheet.addRow({
+    date: 'Closing Bal.',
+    customerName: '',
+    voucherType: '',
+    billSerialNumber: '',
+    debit: '',
+    credit: '',
+    closingBalance: closingBalance,
+  });
+  cbRow.font = summaryFont;
+  cbRow.fill = summaryFill;
 
   // Format currency columns
   ['debit', 'credit', 'closingBalance'].forEach((key) => {

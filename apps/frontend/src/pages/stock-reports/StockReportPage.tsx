@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Filter, ImageOff, Edit2, Save, X } from 'lucide-react';
+import {
+  Filter, ImageOff, Edit2, Save, X, BarChart3,
+  Package, Tag, Layers,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { DataTable, ColumnDef } from '@/components/common/DataTable';
 import { Pagination } from '@/components/common/Pagination';
@@ -10,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { stockReportService } from '@/services/stockReportService';
 import { brandService } from '@/services/brandService';
 import { categoryService } from '@/services/categoryService';
@@ -24,6 +28,137 @@ const GROUP_BY_OPTIONS = [
   { value: 'category', label: 'Sub Category Wise' },
   { value: 'quantity', label: 'Quantity Wise' },
 ];
+
+// ── Mobile product card ────────────────────────────────────────────────────────
+function ProductCard({
+  product,
+  isAdmin,
+  editingId,
+  editQty,
+  setEditQty,
+  onEdit,
+  onSave,
+  onCancel,
+  isPending,
+}: {
+  product: Product;
+  isAdmin: boolean;
+  editingId: string | null;
+  editQty: number;
+  setEditQty: (q: number) => void;
+  onEdit: (p: Product) => void;
+  onSave: (id: string) => void;
+  onCancel: () => void;
+  isPending: boolean;
+}) {
+  const isEditing = editingId === product.id;
+  const stockLow = product.availableQty < 5;
+
+  return (
+    <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+      <div className="flex gap-3 p-3">
+        {/* Image */}
+        <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center shrink-0 overflow-hidden">
+          {product.imageUrl ? (
+            <img
+              src={product.imageUrl}
+              alt={product.modelName}
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <ImageOff className="h-6 w-6 text-muted-foreground" />
+          )}
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <p className="font-semibold text-sm leading-tight line-clamp-2">{product.modelName}</p>
+            <Badge variant={stockLow ? 'warning' : 'success'} className="shrink-0 text-xs">
+              {product.availableQty}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            {product.brand?.name && (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <Tag className="h-3 w-3" /> {product.brand.name}
+              </span>
+            )}
+            {product.category?.name && (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <Layers className="h-3 w-3" /> {product.category.name}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Price strip */}
+      <div className="grid grid-cols-3 divide-x border-t bg-muted/30">
+        <div className="px-3 py-2 text-center">
+          <p className="text-[9px] text-muted-foreground uppercase tracking-wide font-semibold">MRP</p>
+          <p className="text-xs font-semibold tabular-nums mt-0.5">{formatCurrency(product.mrp)}</p>
+        </div>
+        <div className="px-3 py-2 text-center">
+          <p className="text-[9px] text-amber-600 uppercase tracking-wide font-semibold">Gold</p>
+          <p className="text-xs font-bold text-amber-700 tabular-nums mt-0.5">{formatCurrency(product.cashPrice)}</p>
+        </div>
+        <div className="px-3 py-2 text-center">
+          <p className="text-[9px] text-blue-600 uppercase tracking-wide font-semibold">Platinum</p>
+          <p className="text-xs font-bold text-blue-700 tabular-nums mt-0.5">{formatCurrency(product.creditPrice)}</p>
+        </div>
+      </div>
+
+      {/* Admin edit strip */}
+      {isAdmin && (
+        <div className="px-3 py-2.5 border-t bg-card flex items-center gap-2">
+          <p className="text-xs text-muted-foreground flex-1">
+            Stock: <span className="font-semibold text-foreground">{product.availableQty} units</span>
+          </p>
+          {isEditing ? (
+            <div className="flex items-center gap-1.5">
+              <Input
+                type="number"
+                value={editQty}
+                onChange={(e) => setEditQty(parseInt(e.target.value) || 0)}
+                className="w-20 h-8 text-sm"
+                min={0}
+              />
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-green-600 hover:bg-green-50"
+                onClick={() => onSave(product.id)}
+                disabled={isPending}
+              >
+                <Save className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-destructive hover:bg-red-50"
+                onClick={onCancel}
+                disabled={isPending}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1.5"
+              onClick={() => onEdit(product)}
+            >
+              <Edit2 className="h-3 w-3" /> Edit Stock
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function StockReportPage() {
   const { page, pageSize, setPage, setPageSize, reset } = usePagination();
@@ -91,70 +226,72 @@ export default function StockReportPage() {
     setEditQty(0);
   };
 
+  const activeFiltersCount = (brandId ? 1 : 0) + (categoryId ? 1 : 0) + (groupBy !== 'brand' ? 1 : 0);
+  const products: Product[] = (data?.data ?? []) as Product[];
+
+  // ── Desktop table columns ──────────────────────────────────────────────────
   const columns: ColumnDef<Product>[] = [
     {
       key: 'imageUrl',
-      header: 'Product',
+      header: 'Image',
       cell: (r) => (
         <div className="flex items-center justify-center">
           {r.imageUrl ? (
             <img
               src={r.imageUrl}
               alt={r.modelName}
-              className="h-12 w-12 object-cover rounded flex-shrink-0"
+              className="h-11 w-11 object-cover rounded-lg flex-shrink-0"
               loading="lazy"
             />
           ) : (
             <div
-              className="h-12 w-12 rounded bg-muted flex items-center justify-center flex-shrink-0"
-              title="No image"
+              className="h-11 w-11 rounded-lg bg-muted flex items-center justify-center flex-shrink-0"
               aria-label="No image"
             >
-              <ImageOff className="h-5 w-5 text-muted-foreground" />
+              <ImageOff className="h-4 w-4 text-muted-foreground" />
             </div>
           )}
         </div>
       ),
     },
-    { 
-      key: 'modelName', 
+    {
+      key: 'modelName',
       header: 'Model Name',
-      cell: (r) => <div className="font-medium">{r.modelName}</div>
+      cell: (r) => <div className="font-semibold text-sm">{r.modelName}</div>,
     },
     {
       key: 'brand',
       header: 'Brand',
-      cell: (r) => <div className="text-sm">{r.brand?.name || '-'}</div>,
+      cell: (r) => <div className="text-sm text-muted-foreground">{r.brand?.name || '—'}</div>,
     },
     {
       key: 'category',
       header: 'Category',
-      cell: (r) => <div className="text-sm">{r.category?.name || '-'}</div>,
+      cell: (r) => <div className="text-sm text-muted-foreground">{r.category?.name || '—'}</div>,
     },
     {
       key: 'mrp',
       header: 'MRP',
-      cell: (r) => <div className="text-sm font-medium">{formatCurrency(r.mrp)}</div>,
+      cell: (r) => <div className="text-sm font-medium tabular-nums">{formatCurrency(r.mrp)}</div>,
     },
     {
       key: 'cashPrice',
       header: 'Gold Price',
-      cell: (r) => <div className="text-sm text-green-600 font-medium">{formatCurrency(r.cashPrice)}</div>,
+      cell: (r) => <div className="text-sm font-semibold text-amber-600 tabular-nums">{formatCurrency(r.cashPrice)}</div>,
     },
     {
       key: 'creditPrice',
       header: 'Platinum Price',
-      cell: (r) => <div className="text-sm text-blue-600 font-medium">{formatCurrency(r.creditPrice)}</div>,
+      cell: (r) => <div className="text-sm font-semibold text-blue-600 tabular-nums">{formatCurrency(r.creditPrice)}</div>,
     },
     {
       key: 'availableQty',
-      header: 'Available Qty',
+      header: 'Stock',
       cell: (r) => {
         const isEditing = editingId === r.id;
-        
         if (isEditing) {
           return (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <Input
                 type="number"
                 value={editQty}
@@ -167,26 +304,25 @@ export default function StockReportPage() {
                 variant="ghost"
                 onClick={() => handleSaveClick(r.id)}
                 disabled={updateStockMutation.isPending}
-                className="h-8 w-8 p-0"
+                className="h-8 w-8 p-0 text-green-600 hover:bg-green-50"
               >
-                <Save className="h-4 w-4 text-green-600" />
+                <Save className="h-4 w-4" />
               </Button>
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={handleCancelEdit}
                 disabled={updateStockMutation.isPending}
-                className="h-8 w-8 p-0"
+                className="h-8 w-8 p-0 text-destructive hover:bg-red-50"
               >
-                <X className="h-4 w-4 text-red-600" />
+                <X className="h-4 w-4" />
               </Button>
             </div>
           );
         }
-        
         return (
           <div className="flex items-center gap-2">
-            <Badge variant={r.availableQty < 5 ? 'warning' : 'success'} className="text-sm px-3 py-1">
+            <Badge variant={r.availableQty < 5 ? 'warning' : 'success'} className="tabular-nums font-bold">
               {r.availableQty}
             </Badge>
             {isAdmin && (
@@ -194,9 +330,10 @@ export default function StockReportPage() {
                 size="sm"
                 variant="ghost"
                 onClick={() => handleEditClick(r)}
-                className="h-8 w-8 p-0"
+                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                title="Edit stock"
               >
-                <Edit2 className="h-4 w-4" />
+                <Edit2 className="h-3.5 w-3.5" />
               </Button>
             )}
           </div>
@@ -205,211 +342,234 @@ export default function StockReportPage() {
     },
   ];
 
-  return (
+  // ── Shared filter controls ─────────────────────────────────────────────────
+  const FilterControls = () => (
     <div className="space-y-3">
-      {/* Compact Header with Inline Filters - Desktop */}
-      <div className="bg-white border-b px-6 py-4 hidden lg:block">
-        <div className="flex items-center justify-between gap-6">
-          {/* Title Section */}
-          <div className="flex-shrink-0">
-            <h1 className="text-xl font-bold text-gray-900">Stock Report</h1>
-            <p className="text-xs text-gray-600">View and manage inventory</p>
+      <div>
+        <Label className="text-xs font-semibold mb-1.5 block">Group By</Label>
+        <Select value={groupBy} onValueChange={(v) => { setGroupBy(v); reset(); }}>
+          <SelectTrigger className="w-full h-9"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {GROUP_BY_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label className="text-xs font-semibold mb-1.5 block">Brand</Label>
+        <Select
+          value={brandId || '_all'}
+          onValueChange={(v) => { setBrandId(v === '_all' ? '' : v); setCategoryId(''); reset(); }}
+        >
+          <SelectTrigger className="w-full h-9"><SelectValue placeholder="All Brands" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_all">All Brands</SelectItem>
+            {brands?.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label className="text-xs font-semibold mb-1.5 block">Category</Label>
+        <Select
+          value={categoryId || '_all'}
+          onValueChange={(v) => { setCategoryId(v === '_all' ? '' : v); reset(); }}
+          disabled={!brandId}
+        >
+          <SelectTrigger className="w-full h-9"><SelectValue placeholder="All Categories" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_all">All Categories</SelectItem>
+            {categories?.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* ── Page Header ─────────────────────────────────────────────────────── */}
+      <div className="relative overflow-hidden rounded-2xl px-5 py-4 sm:px-6 sm:py-5 border bg-card shadow-sm">
+        <div className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full bg-primary/5" />
+        <div className="relative z-10 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest mb-0.5">Inventory</p>
+            <h1 className="text-lg sm:text-xl font-extrabold tracking-tight">Stock Report</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">View and manage product inventory</p>
           </div>
-          
-          {/* Filters in same row */}
-          <div className="flex items-center gap-4 flex-1 max-w-4xl">
-            <div className="flex-1 min-w-[180px]">
-              <Label className="text-xs mb-1 block font-medium text-gray-700">Group By</Label>
-              <Select
-                value={groupBy}
-                onValueChange={(v) => {
-                  setGroupBy(v);
-                  reset();
-                }}
-              >
-                <SelectTrigger className="w-full h-9">
-                  <SelectValue />
-                </SelectTrigger>
+          <div className="hidden sm:flex items-center gap-1.5 rounded-xl bg-muted px-3 py-2 shrink-0">
+            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            <span className="text-xs font-medium">
+              {data?.total ?? 0} products
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Desktop filter bar ──────────────────────────────────────────────── */}
+      <div className="hidden lg:block">
+        <div className="rounded-xl border bg-card shadow-sm p-4">
+          <div className="flex items-end gap-4">
+            <div className="flex-1 min-w-[160px]">
+              <Label className="text-xs font-semibold mb-1.5 block text-muted-foreground uppercase tracking-wide">Group By</Label>
+              <Select value={groupBy} onValueChange={(v) => { setGroupBy(v); reset(); }}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {GROUP_BY_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
-                      {o.label}
-                    </SelectItem>
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="flex-1 min-w-[180px]">
-              <Label className="text-xs mb-1 block font-medium text-gray-700">Brand</Label>
-              <Select
-                value={brandId || '_all'}
-                onValueChange={(v) => {
-                  setBrandId(v === '_all' ? '' : v);
-                  setCategoryId('');
-                  reset();
-                }}
-              >
-                <SelectTrigger className="w-full h-9">
-                  <SelectValue placeholder="All Brands" />
-                </SelectTrigger>
+            <div className="flex-1 min-w-[160px]">
+              <Label className="text-xs font-semibold mb-1.5 block text-muted-foreground uppercase tracking-wide">Brand</Label>
+              <Select value={brandId || '_all'} onValueChange={(v) => { setBrandId(v === '_all' ? '' : v); setCategoryId(''); reset(); }}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="All Brands" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_all">All Brands</SelectItem>
-                  {brands?.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.name}
-                    </SelectItem>
-                  ))}
+                  {brands?.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="flex-1 min-w-[180px]">
-              <Label className="text-xs mb-1 block font-medium text-gray-700">Category</Label>
-              <Select
-                value={categoryId || '_all'}
-                onValueChange={(v) => {
-                  setCategoryId(v === '_all' ? '' : v);
-                  reset();
-                }}
-                disabled={!brandId}
-              >
-                <SelectTrigger className="w-full h-9">
-                  <SelectValue placeholder="All Categories" />
-                </SelectTrigger>
+            <div className="flex-1 min-w-[160px]">
+              <Label className="text-xs font-semibold mb-1.5 block text-muted-foreground uppercase tracking-wide">Category</Label>
+              <Select value={categoryId || '_all'} onValueChange={(v) => { setCategoryId(v === '_all' ? '' : v); reset(); }} disabled={!brandId}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="All Categories" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_all">All Categories</SelectItem>
-                  {categories?.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
+                  {categories?.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
+            {activeFiltersCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 text-xs text-muted-foreground shrink-0"
+                onClick={() => { setBrandId(''); setCategoryId(''); setGroupBy('brand'); reset(); }}
+              >
+                <X className="h-3.5 w-3.5 mr-1" /> Clear
+              </Button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Mobile Header and Filters */}
+      {/* ── Mobile filter button ────────────────────────────────────────────── */}
       <div className="lg:hidden">
-        <div className="bg-white border-b px-4 py-3">
-          <h1 className="text-xl font-bold text-gray-900">Stock Report</h1>
-          <p className="text-xs text-gray-600 mt-0.5">View and manage inventory</p>
-        </div>
-        
-        <div className="px-4 mt-3">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="sm" className="w-full">
-                <Filter className="h-4 w-4 mr-2" />
-                Filters
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="outline" className="w-full h-10 gap-2 font-medium shadow-sm">
+              <Filter className="h-4 w-4" />
+              Filters
+              {activeFiltersCount > 0 && (
+                <span className="h-5 min-w-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-bold">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </Button>
+          </SheetTrigger>
+          <SheetContent className="w-[300px]">
+            <SheetHeader className="pb-4">
+              <SheetTitle className="flex items-center gap-2">
+                <Filter className="h-4 w-4" /> Filters
+              </SheetTitle>
+            </SheetHeader>
+            <FilterControls />
+            {activeFiltersCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full mt-4"
+                onClick={() => { setBrandId(''); setCategoryId(''); setGroupBy('brand'); reset(); }}
+              >
+                <X className="h-3.5 w-3.5 mr-1.5" /> Clear All Filters
               </Button>
-            </SheetTrigger>
-            <SheetContent>
-              <SheetHeader>
-                <SheetTitle>Filters</SheetTitle>
-              </SheetHeader>
-              <div className="space-y-4 mt-4">
-                <div>
-                  <Label className="text-sm mb-2 block font-medium">Group By</Label>
-                  <Select
-                    value={groupBy}
-                    onValueChange={(v) => {
-                      setGroupBy(v);
-                      reset();
-                    }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {GROUP_BY_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label className="text-sm mb-2 block font-medium">Brand</Label>
-                  <Select
-                    value={brandId || '_all'}
-                    onValueChange={(v) => {
-                      setBrandId(v === '_all' ? '' : v);
-                      setCategoryId('');
-                      reset();
-                    }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="All Brands" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="_all">All Brands</SelectItem>
-                      {brands?.map((b) => (
-                        <SelectItem key={b.id} value={b.id}>
-                          {b.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label className="text-sm mb-2 block font-medium">Category</Label>
-                  <Select
-                    value={categoryId || '_all'}
-                    onValueChange={(v) => {
-                      setCategoryId(v === '_all' ? '' : v);
-                      reset();
-                    }}
-                    disabled={!brandId}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="All Categories" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="_all">All Categories</SelectItem>
-                      {categories?.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
-        </div>
+            )}
+          </SheetContent>
+        </Sheet>
       </div>
 
-      <div className="px-4">
+      {/* ── Active filter chips ─────────────────────────────────────────────── */}
+      {activeFiltersCount > 0 && (
+        <div className="flex flex-wrap gap-1.5 lg:hidden">
+          {groupBy !== 'brand' && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+              <Package className="h-3 w-3" />
+              {GROUP_BY_OPTIONS.find(o => o.value === groupBy)?.label}
+            </span>
+          )}
+          {brandId && brands && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">
+              <Tag className="h-3 w-3" />
+              {brands.find(b => b.id === brandId)?.name}
+            </span>
+          )}
+          {categoryId && categories && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700">
+              <Layers className="h-3 w-3" />
+              {categories.find(c => c.id === categoryId)?.name}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* ── Mobile card list ────────────────────────────────────────────────── */}
+      <div className="lg:hidden space-y-3">
+        {isLoading ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-40 rounded-xl" />
+          ))
+        ) : products.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
+            <Package className="h-12 w-12 opacity-20" />
+            <p className="text-sm font-medium">No products found</p>
+            <p className="text-xs opacity-70">Try adjusting your filters</p>
+          </div>
+        ) : (
+          products.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              isAdmin={isAdmin}
+              editingId={editingId}
+              editQty={editQty}
+              setEditQty={setEditQty}
+              onEdit={handleEditClick}
+              onSave={handleSaveClick}
+              onCancel={handleCancelEdit}
+              isPending={updateStockMutation.isPending}
+            />
+          ))
+        )}
+      </div>
+
+      {/* ── Desktop table ───────────────────────────────────────────────────── */}
+      <div className="hidden lg:block rounded-xl border bg-card shadow-sm overflow-hidden">
         <DataTable
           columns={columns as unknown as ColumnDef<Record<string, unknown>>[]}
           data={(data?.data || []) as Record<string, unknown>[]}
           isLoading={isLoading}
           getRowKey={(r) => (r as unknown as Product).id}
         />
-        {data && data.total > 0 && (
-          <div className="mt-4">
-            <Pagination
-              page={page}
-              pageSize={pageSize}
-              total={data.total}
-              totalPages={data.totalPages}
-              onPageChange={setPage}
-              onPageSizeChange={(newSize) => {
-                setPageSize(newSize);
-                setPage(1);
-              }}
-            />
-          </div>
-        )}
       </div>
+
+      {/* ── Pagination ──────────────────────────────────────────────────────── */}
+      {data && data.total > 0 && (
+        <div className="mt-2">
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={data.total}
+            totalPages={data.totalPages}
+            onPageChange={setPage}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
-

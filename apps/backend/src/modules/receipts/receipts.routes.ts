@@ -6,6 +6,7 @@ const router = Router();
 
 router.get('/', authenticate, receiptsController.listReceipts);
 router.post('/', authenticate, receiptsController.createReceipt);
+router.get('/:id/pdf', authenticate, receiptsController.downloadReceiptPdf);
 router.get('/:id', authenticate, receiptsController.getReceiptById);
 router.put('/:id', authenticate, receiptsController.updateReceipt);
 router.delete('/:id', authenticate, receiptsController.deleteReceipt);

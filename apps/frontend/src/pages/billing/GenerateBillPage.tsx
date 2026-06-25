@@ -215,12 +215,17 @@ export default function GenerateBillPage() {
 
   if (!selectedStore) {
     return (
-      <div className="max-w-lg mx-auto px-2 py-4">
-        <PageHeader title="Generate Bill" description="Select a store to start billing" />
-        <div className="mt-4">
-          <Label className="text-sm font-medium mb-2 block">Store</Label>
-          <StoreCombobox value={selectedStore} onChange={setSelectedStore} />
-        </div>
+      <div className="max-w-md mx-auto px-4 py-12 flex flex-col justify-center min-h-[70vh]">
+        <Card className="shadow-lg border rounded-2xl overflow-hidden p-6 bg-white space-y-6">
+          <div className="space-y-2 text-center">
+            <h1 className="text-2xl font-extrabold tracking-tight text-foreground">Generate Bill</h1>
+            <p className="text-sm text-muted-foreground">Select a store from below to begin your billing session.</p>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Select Store</Label>
+            <StoreCombobox value={selectedStore} onChange={setSelectedStore} />
+          </div>
+        </Card>
       </div>
     );
   }
@@ -296,7 +301,7 @@ export default function GenerateBillPage() {
 
           {loadingProducts ? (
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-              {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-48 rounded-xl" />)}
+              {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-48 rounded-xl animate-pulse" />)}
             </div>
           ) : products.length === 0 ? (
             <EmptyState title="No products in stock" description="Products with zero stock are hidden from billing." />
@@ -311,7 +316,7 @@ export default function GenerateBillPage() {
                 return (
                   <Card
                     key={product.id}
-                    className="overflow-hidden flex flex-col border shadow-sm hover:shadow-md transition-shadow rounded-xl"
+                    className="overflow-hidden flex flex-col border shadow-sm hover:shadow-md hover:translate-y-[-2px] transition-all duration-300 rounded-xl"
                   >
                     <div className="relative aspect-square bg-muted">
                       <ProductImageCarousel
@@ -339,12 +344,12 @@ export default function GenerateBillPage() {
                       )}
                     </div>
 
-                    <CardContent className="p-2 sm:p-3 flex flex-col flex-1 gap-2">
-                      <h3 className="font-medium text-xs sm:text-sm leading-tight line-clamp-2 text-foreground">
+                    <CardContent className="p-3 flex flex-col flex-1 gap-2 bg-card">
+                      <h3 className="font-semibold text-xs sm:text-sm leading-tight line-clamp-2 text-foreground">
                         {product.modelName}
                       </h3>
 
-                      <div className="rounded-lg bg-muted/40 px-2 py-1.5 space-y-0.5">
+                      <div className="rounded-lg bg-muted/40 px-2 py-1.5 space-y-0.5 mt-1">
                         <div className="flex items-baseline justify-between gap-1">
                           <span className="text-[10px] text-muted-foreground uppercase tracking-wide">MRP</span>
                           <span className="text-[11px] text-muted-foreground line-through tabular-nums">
@@ -353,13 +358,13 @@ export default function GenerateBillPage() {
                         </div>
                         <div className="flex items-baseline justify-between gap-1">
                           <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Selling</span>
-                          <span className="font-bold text-sm text-primary tabular-nums">
+                          <span className="font-extrabold text-sm text-primary tabular-nums">
                             {formatCurrency(sellingPrice)}
                           </span>
                         </div>
                       </div>
 
-                      <div className="mt-auto pt-0.5" onClick={(e) => e.stopPropagation()}>
+                      <div className="mt-auto pt-2" onClick={(e) => e.stopPropagation()}>
                         {inCart ? (
                           <div className="flex items-center gap-1.5">
                             <Button

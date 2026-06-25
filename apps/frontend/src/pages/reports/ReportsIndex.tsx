@@ -65,23 +65,17 @@ export default function ReportsIndex() {
     <div className="space-y-5 sm:space-y-6 pb-6">
 
       {/* ── Hero Banner ── */}
-      <div
-        className="relative overflow-hidden rounded-2xl px-5 py-6 sm:px-8 sm:py-8"
-        style={{
-          background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #312e81 100%)',
-          boxShadow: '0 8px 32px 0 rgba(30,27,75,0.28)',
-        }}
-      >
+      <div className="relative overflow-hidden rounded-2xl px-5 py-6 sm:px-8 sm:py-8 border bg-card shadow-sm">
         {/* Decorative circles */}
-        <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/5" />
-        <div className="pointer-events-none absolute right-32 bottom-0 h-36 w-36 rounded-full bg-white/5" />
-        <div className="pointer-events-none absolute left-1/2 -bottom-10 h-24 w-24 rounded-full bg-indigo-500/20 blur-2xl" />
+        <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-primary/5" />
+        <div className="pointer-events-none absolute right-32 bottom-0 h-36 w-36 rounded-full bg-primary/5" />
+        <div className="pointer-events-none absolute left-1/2 -bottom-10 h-24 w-24 rounded-full bg-primary/5 blur-2xl" />
 
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
           {/* Back button */}
           <Link
             to="/"
-            className="inline-flex items-center gap-1.5 text-xs text-indigo-300 hover:text-white transition-colors self-start"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors self-start"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Dashboard
@@ -89,23 +83,23 @@ export default function ReportsIndex() {
 
           <div className="sm:flex-1">
             <div className="flex items-center gap-2 mb-1">
-              <div className="p-1.5 rounded-lg bg-white/10 backdrop-blur-sm">
-                <BarChart2 className="h-5 w-5 text-white" />
+              <div className="p-1.5 rounded-lg bg-primary/10">
+                <BarChart2 className="h-5 w-5 text-primary" />
               </div>
-              <p className="text-xs text-indigo-300 font-medium uppercase tracking-widest">Analytics</p>
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest">Analytics</p>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
               Reports & Analytics
             </h1>
-            <p className="text-sm text-indigo-300/80 mt-1 max-w-md">
+            <p className="text-sm text-muted-foreground mt-1 max-w-md">
               Gold/platinum sales, inventory quantities, pricing, and profit analysis — all in one place.
             </p>
           </div>
 
           <div className="hidden sm:flex items-center gap-2">
-            <div className="flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
-              <Sparkles className="h-3.5 w-3.5 text-indigo-300" />
-              <span className="text-xs text-white/80 font-medium">4 Reports</span>
+            <div className="flex items-center gap-1.5 rounded-xl bg-muted px-3 py-2">
+              <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium">4 Reports</span>
             </div>
           </div>
         </div>

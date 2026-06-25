@@ -60,37 +60,40 @@ function OperatorKpiCard({
   icon: Icon,
   gradient,
   sub,
+  title,
 }: {
   label: string;
   value: string | number;
   icon: React.ElementType;
   gradient: string;
   sub?: string;
+  title?: string;
 }) {
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl p-4 sm:p-5 flex flex-col gap-3 ${gradient}`}
+      className={`relative overflow-hidden rounded-2xl p-3 sm:p-5 flex flex-col gap-2 sm:gap-3 ${gradient} transition-all duration-300 hover:translate-y-[-2px] hover:shadow-lg`}
       style={{ boxShadow: '0 4px 24px 0 rgba(80,70,220,0.10)' }}
+      title={title}
     >
       {/* Decorative circle */}
-      <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10" />
-      <div className="absolute -right-2 -bottom-5 h-14 w-14 rounded-full bg-white/10" />
+      <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10 pointer-events-none" />
+      <div className="absolute -right-2 -bottom-5 h-14 w-14 rounded-full bg-white/10 pointer-events-none" />
 
       <div className="relative z-10 flex items-center justify-between">
-        <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-widest text-white/70">
+        <p className="text-[9px] sm:text-xs font-semibold uppercase tracking-widest text-white/70 leading-tight">
           {label}
         </p>
-        <div className="p-1.5 rounded-lg bg-white/20 backdrop-blur-sm">
-          <Icon className="h-4 w-4 text-white" />
+        <div className="p-1 sm:p-1.5 rounded-lg bg-white/20 backdrop-blur-sm shrink-0">
+          <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white" />
         </div>
       </div>
 
       <div className="relative z-10">
-        <p className="text-2xl sm:text-3xl font-bold text-white tabular-nums leading-none">
+        <p className="text-xl sm:text-3xl font-extrabold text-white tabular-nums leading-none break-all">
           {value}
         </p>
         {sub && (
-          <p className="text-[10px] sm:text-xs text-white/60 mt-1">{sub}</p>
+          <p className="text-[9px] sm:text-xs text-white/60 mt-1 sm:mt-1.5 font-medium">{sub}</p>
         )}
       </div>
     </div>
@@ -127,21 +130,15 @@ export default function OperatorDashboard() {
     <div className="space-y-4 sm:space-y-5 pb-4">
 
       {/* ── Hero Welcome Banner ── */}
-      <div
-        className="relative overflow-hidden rounded-2xl px-5 py-5 sm:px-7 sm:py-6"
-        style={{
-          background: 'linear-gradient(135deg, #1e1b4b 0%, #3730a3 60%, #4f46e5 100%)',
-          boxShadow: '0 8px 32px 0 rgba(79,70,229,0.25)',
-        }}
-      >
+      <div className="relative overflow-hidden rounded-2xl px-5 py-5 sm:px-7 sm:py-6 border bg-card shadow-sm">
         {/* decorative circles */}
-        <div className="pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/5" />
-        <div className="pointer-events-none absolute right-20 bottom-0 h-28 w-28 rounded-full bg-white/5" />
+        <div className="pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full bg-primary/5" />
+        <div className="pointer-events-none absolute right-20 bottom-0 h-28 w-28 rounded-full bg-primary/5" />
 
         <div className="relative z-10 flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-xs text-indigo-200 mb-0.5 font-medium">{getGreeting()},</p>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight truncate">
+            <p className="text-xs text-muted-foreground mb-0.5 font-medium">{getGreeting()},</p>
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight truncate">
               {user?.username}
             </h1>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
@@ -153,11 +150,11 @@ export default function OperatorDashboard() {
                   {getOperatorTypeDisplay(user.operatorType)}
                 </Badge>
               )}
-              <span className="text-xs text-indigo-300">Your performance today</span>
+              <span className="text-xs text-muted-foreground">Your performance today</span>
             </div>
           </div>
 
-          <div className="shrink-0 flex items-center gap-1.5 text-indigo-300 mt-1">
+          <div className="shrink-0 flex items-center gap-1.5 text-muted-foreground mt-1">
             <CalendarDays className="h-3.5 w-3.5" />
             <span className="text-xs font-medium hidden xs:block">{today}</span>
           </div>
@@ -165,33 +162,34 @@ export default function OperatorDashboard() {
       </div>
 
       {/* ── 3 KPI Cards ── */}
-      <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+      <div className="grid grid-cols-2 xs:grid-cols-3 gap-3">
         {isLoading ? (
           Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-[110px] sm:h-[130px] rounded-2xl" />
+            <Skeleton key={i} className="h-[100px] sm:h-[125px] rounded-2xl animate-pulse" />
           ))
         ) : (
           <>
             <OperatorKpiCard
               label="Bills"
               value={data?.ordersToday ?? 0}
-              sub="Created today"
+              sub="Today"
               icon={FileText}
               gradient="bg-gradient-to-br from-blue-600 to-indigo-700"
             />
             <OperatorKpiCard
               label="Receipts"
               value={data?.receiptsToday ?? 0}
-              sub="Created today"
+              sub="Today"
               icon={Receipt}
               gradient="bg-gradient-to-br from-emerald-500 to-teal-700"
             />
             <OperatorKpiCard
               label="Sales"
               value={todaySalesKpi.mobile}
-              sub="Today"
+              sub={todaySalesKpi.mobile !== todaySalesKpi.full ? todaySalesKpi.full : 'Today'}
               icon={TrendingUp}
               gradient="bg-gradient-to-br from-violet-600 to-purple-800"
+              title={todaySalesKpi.full}
             />
           </>
         )}
