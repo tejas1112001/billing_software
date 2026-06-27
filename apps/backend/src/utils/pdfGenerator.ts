@@ -100,45 +100,79 @@ export async function generateBillPdf(order: Order, store: Store): Promise<Buffe
       const PAGE_BOTTOM = PAGE_H - MARGIN;
       const FOOTER_BLOCK_H = 32;
 
-      // ── Header ──
+      // ── Fixed Company Header ──
       const HEADER_H = 108;
       doc.rect(0, 0, PAGE_W, HEADER_H).fill(BRAND);
 
-      doc.fontSize(22)
+      doc.fontSize(24)
         .font('Helvetica-Bold')
         .fillColor(WHITE)
-        .text(store.name, MARGIN, 28, { align: 'center', width: CONTENT_W });
+        .text('GUNAV ENTERPRISES', MARGIN, 20, { align: 'center', width: CONTENT_W });
 
-      doc.fontSize(9.5)
+      doc.fontSize(11)
         .font('Helvetica')
         .fillColor(BRAND_LIGHT)
-        .text(`${store.address}, ${store.city}`, MARGIN, 58, { align: 'center', width: CONTENT_W })
-        .text(`Mobile: ${store.mobile}  ·  Email: ${store.email}`, MARGIN, 72, { align: 'center', width: CONTENT_W });
+        .text('Latur, Maharashtra – 413512', MARGIN, 50, { align: 'center', width: CONTENT_W });
 
-      // ── Bill meta box ──
-      const META_Y = HEADER_H + 14;
-      const META_H = 52;
-      doc.roundedRect(MARGIN, META_Y, CONTENT_W, META_H, 4).fill('#F9FAFB');
-      doc.roundedRect(MARGIN, META_Y, CONTENT_W, META_H, 4).stroke(BORDER_GREY);
+      doc.fontSize(10)
+        .fillColor(BRAND_LIGHT)
+        .text('Mobile: 7773931630', MARGIN, 68, { align: 'center', width: CONTENT_W });
 
-      const metaColW = CONTENT_W / 3;
-      const metaFields = [
+      doc.fontSize(9.5)
+        .fillColor(BRAND_LIGHT)
+        .text('GSTIN: __________________', MARGIN, 84, { align: 'center', width: CONTENT_W });
+
+      // ── Two Column Section: Bill Details & Bill To ──
+      const TWO_COL_Y = HEADER_H + 14;
+      const TWO_COL_H = 78;
+      const COL_GAP = 12;
+      const COL_W = (CONTENT_W - COL_GAP) / 2;
+
+      // Left Column: Bill Details
+      doc.roundedRect(MARGIN, TWO_COL_Y, COL_W, TWO_COL_H, 4).fill('#F9FAFB');
+      doc.roundedRect(MARGIN, TWO_COL_Y, COL_W, TWO_COL_H, 4).stroke(BORDER_GREY);
+
+      doc.fontSize(9)
+        .font('Helvetica-Bold')
+        .fillColor(TEXT_DARK)
+        .text('Bill Details', MARGIN + 12, TWO_COL_Y + 10);
+
+      const billFields = [
         { label: 'Bill No.', value: order.billNumber },
         { label: 'Date & Time', value: formatDateTime(order.createdAt) },
         { label: 'Salesperson', value: order.user?.username ?? '—' },
       ];
 
-      metaFields.forEach((field, i) => {
-        const x = MARGIN + i * metaColW + 12;
-        doc.fontSize(8).font('Helvetica').fillColor(TEXT_GREY).text(field.label, x, META_Y + 10);
-        doc.fontSize(10).font('Helvetica-Bold').fillColor(TEXT_DARK).text(field.value, x, META_Y + 24, {
-          width: metaColW - 20,
+      billFields.forEach((field, i) => {
+        const y = TWO_COL_Y + 30 + i * 16;
+        doc.fontSize(7.5).font('Helvetica').fillColor(TEXT_GREY).text(field.label, MARGIN + 12, y);
+        doc.fontSize(9).font('Helvetica-Bold').fillColor(TEXT_DARK).text(field.value, MARGIN + 12, y + 8, {
+          width: COL_W - 24,
           ellipsis: true,
         });
       });
 
+      // Right Column: Bill To (Store Information)
+      const RIGHT_COL_X = MARGIN + COL_W + COL_GAP;
+      doc.roundedRect(RIGHT_COL_X, TWO_COL_Y, COL_W, TWO_COL_H, 4).fill('#F9FAFB');
+      doc.roundedRect(RIGHT_COL_X, TWO_COL_Y, COL_W, TWO_COL_H, 4).stroke(BORDER_GREY);
+
+      doc.fontSize(9)
+        .font('Helvetica-Bold')
+        .fillColor(TEXT_DARK)
+        .text('Bill To', RIGHT_COL_X + 12, TWO_COL_Y + 10);
+
+      doc.fontSize(7.5).font('Helvetica').fillColor(TEXT_GREY).text('Store Name', RIGHT_COL_X + 12, TWO_COL_Y + 30);
+      doc.fontSize(9).font('Helvetica-Bold').fillColor(TEXT_DARK).text(store.name, RIGHT_COL_X + 12, TWO_COL_Y + 38, {
+        width: COL_W - 24,
+        ellipsis: true,
+      });
+
+      doc.fontSize(7.5).font('Helvetica').fillColor(TEXT_GREY).text('Mobile Number', RIGHT_COL_X + 12, TWO_COL_Y + 54);
+      doc.fontSize(9).font('Helvetica-Bold').fillColor(TEXT_DARK).text(store.mobile, RIGHT_COL_X + 12, TWO_COL_Y + 62);
+
       // ── Items table ──
-      const TABLE_TOP = META_Y + META_H + 16;
+      const TABLE_TOP = TWO_COL_Y + TWO_COL_H + 16;
       const TABLE_W = CONTENT_W;
       const IMG_SIZE = 34;
 

@@ -360,8 +360,8 @@ export default function LoginPage() {
               </svg>
             </div>
             <div>
-              <div className="ls-logo-name">BillSoft</div>
-              <div className="ls-logo-tag">Billing &amp; Inventory</div>
+              <div className="ls-logo-name">GUNAV ENTERPRISES</div>
+              <div className="ls-logo-tag">Latur, Maharashtra – 413512</div>
             </div>
           </div>
 
@@ -392,7 +392,7 @@ export default function LoginPage() {
           </div>
 
           <div className="ls-rule" />
-          <div className="ls-brand-footer">© 2026 BillSoft. All rights reserved.</div>
+          <div className="ls-brand-footer">© Copyright 2026. All Rights Reserved by Webfifi Solutions.</div>
         </aside>
 
         {/* ══ RIGHT FORM PANEL ══ */}
@@ -400,7 +400,7 @@ export default function LoginPage() {
           <div className="ls-form-inner">
             <p className="ls-eyebrow">Secure Portal</p>
             <h2 className="ls-title">Welcome back</h2>
-            <p className="ls-subtitle">Sign in to your BillSoft account to continue.</p>
+            <p className="ls-subtitle">Sign in to your account to continue.</p>
 
             {/* Server error */}
             {serverError && (
@@ -482,7 +482,7 @@ export default function LoginPage() {
             </form>
 
             <p className="ls-footer">
-              © 2026 BillSoft · Billing &amp; Inventory Management
+              © Copyright 2026. All Rights Reserved by Webfifi Solutions.
             </p>
           </div>
         </main>
