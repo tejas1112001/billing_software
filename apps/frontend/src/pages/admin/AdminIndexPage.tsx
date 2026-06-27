@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Tag, Grid, Store, Package, Activity, CreditCard, Users, BookOpen } from 'lucide-react';
+import { Tag, Grid, Store, Package, Activity, CreditCard, Users, BookOpen, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PageHeader } from '@/components/common/PageHeader';
 
@@ -13,6 +13,7 @@ const adminSections = [
   { to: '/admin/payment-methods', icon: CreditCard, title: 'Payment Methods', description: 'Manage payment types', color: 'bg-emerald-100 text-emerald-600' },
   { to: '/admin/user-logs', icon: Activity, title: 'Audit Logs', description: 'Full system audit trail', color: 'bg-red-100 text-red-600' },
   { to: '/ledger', icon: BookOpen, title: 'Ledgers', description: 'All store ledgers', color: 'bg-yellow-100 text-yellow-600' },
+  { to: '/admin/reset-data', icon: Trash2, title: 'Reset Data', description: 'Clear all system data', color: 'bg-red-100 text-red-600' },
 ];
 
 export default function AdminIndexPage() {

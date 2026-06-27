@@ -21,6 +21,7 @@ import dashboardRouter from './modules/dashboard/dashboard.routes';
 import uploadRouter from './modules/upload/upload.routes';
 import paymentMethodsRouter from './modules/payment-methods/paymentMethods.routes';
 import usersRouter from './modules/users/users.routes';
+import adminRouter from './modules/admin/admin.routes';
 
 const app = express();
 
@@ -94,6 +95,7 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/upload', uploadRouter);
 app.use('/api/payment-methods', paymentMethodsRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/admin', adminRouter);
 
 // Global error handler (must be last)
 app.use(errorHandler);

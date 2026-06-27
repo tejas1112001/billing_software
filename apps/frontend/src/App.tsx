@@ -29,6 +29,7 @@ const ProductsPage = lazy(() => import('@/pages/admin/ProductsPage'));
 const UserLogsPage = lazy(() => import('@/pages/admin/UserLogsPage'));
 const PaymentMethodsPage = lazy(() => import('@/pages/admin/PaymentMethodsPage'));
 const UsersPage = lazy(() => import('@/pages/admin/UsersPage'));
+const ResetDataPage = lazy(() => import('@/pages/admin/ResetDataPage'));
 
 // Reports (admin)
 const ReportsIndex = lazy(() => import('@/pages/reports/ReportsIndex'));
@@ -90,6 +91,7 @@ export default function App() {
                   <Route path="/admin/users" element={<UsersPage />} />
                   <Route path="/admin/payment-methods" element={<PaymentMethodsPage />} />
                   <Route path="/admin/user-logs" element={<UserLogsPage />} />
+                  <Route path="/admin/reset-data" element={<ResetDataPage />} />
 
                   {/* Legacy redirects */}
                   <Route path="/admin/reports/cash-credit" element={<Navigate to="/reports/cash-credit" replace />} />
