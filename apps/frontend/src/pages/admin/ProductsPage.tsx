@@ -29,13 +29,13 @@ import type { Product, Brand, Category } from '@/types';
 
 const schema = z.object({
   modelName: z.string().min(1, 'Required'),
-  brandId: z.string().min(1, 'Required'),
-  categoryId: z.string().min(1, 'Required'),
-  mrp: z.coerce.number().positive('MRP must be positive'),
-  cashPrice: z.coerce.number().positive('Gold Price must be positive'),
-  creditPrice: z.coerce.number().positive('Platinum Price must be positive'),
-  purchasePrice: z.coerce.number().positive('Purchase Price must be positive').optional().or(z.literal(0)),
-  availableQty: z.coerce.number().int().min(0, 'Cannot be negative'),
+  brandId: z.string().optional(),
+  categoryId: z.string().optional(),
+  mrp: z.coerce.number().optional(),
+  cashPrice: z.coerce.number().optional(),
+  creditPrice: z.coerce.number().optional(),
+  purchasePrice: z.coerce.number().optional(),
+  availableQty: z.coerce.number().int().optional(),
   isNewArrival: z.boolean().optional(),
 });
 type FormData = z.infer<typeof schema>;
@@ -84,7 +84,10 @@ export default function ProductsPage() {
       qc.invalidateQueries({ queryKey: ['products'] });
       closeDialog();
     },
-    onError: () => toast.error('Failed to create product'),
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      toast.error(msg || 'Failed to create product');
+    },
   });
 
   const updateMut = useMutation({
@@ -95,7 +98,10 @@ export default function ProductsPage() {
       qc.invalidateQueries({ queryKey: ['products'] });
       closeDialog();
     },
-    onError: () => toast.error('Failed to update product'),
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      toast.error(msg || 'Failed to update product');
+    },
   });
 
   const deleteMut = useMutation({
@@ -385,27 +391,22 @@ export default function ProductsPage() {
               <div>
                 <Label className="text-xs sm:text-sm">MRP</Label>
                 <Input type="number" step="0.01" {...register('mrp')} className="h-8 sm:h-9 mt-1" />
-                {errors.mrp && <p className="text-xs text-destructive">{errors.mrp.message}</p>}
               </div>
               <div>
                 <Label className="text-xs sm:text-sm">Gold Price</Label>
                 <Input type="number" step="0.01" {...register('cashPrice')} className="h-8 sm:h-9 mt-1" />
-                {errors.cashPrice && <p className="text-xs text-destructive">{errors.cashPrice.message}</p>}
               </div>
               <div>
                 <Label className="text-xs sm:text-sm">Platinum Price</Label>
                 <Input type="number" step="0.01" {...register('creditPrice')} className="h-8 sm:h-9 mt-1" />
-                {errors.creditPrice && <p className="text-xs text-destructive">{errors.creditPrice.message}</p>}
               </div>
               <div>
                 <Label className="text-xs sm:text-sm">Purchase Price (Optional)</Label>
                 <Input type="number" step="0.01" {...register('purchasePrice')} className="h-8 sm:h-9 mt-1" placeholder="0.00" />
-                {errors.purchasePrice && <p className="text-xs text-destructive">{errors.purchasePrice.message}</p>}
               </div>
               <div>
                 <Label className="text-xs sm:text-sm">Quantity</Label>
                 <Input type="number" {...register('availableQty')} className="h-8 sm:h-9 mt-1" />
-                {errors.availableQty && <p className="text-xs text-destructive">{errors.availableQty.message}</p>}
               </div>
               <div className="flex items-center space-x-2 pt-6">
                 <input

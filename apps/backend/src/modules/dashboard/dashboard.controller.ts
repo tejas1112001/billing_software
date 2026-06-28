@@ -300,7 +300,7 @@ export async function getTopProducts(req: Request, res: Response, next: NextFunc
     const result = topItems.map(item => ({
       productId: item.productId,
       modelName: productMap.get(item.productId)?.modelName ?? 'Unknown',
-      brandName: productMap.get(item.productId)?.brand.name ?? '',
+      brandName: productMap.get(item.productId)?.brand?.name ?? '',
       totalQty: item._sum.quantity ?? 0,
       totalRevenue: Number(item._sum.lineTotal ?? 0),
     }));
@@ -509,8 +509,8 @@ export async function getPurchaseQuantityReport(req: Request, res: Response, nex
       return {
         productId: item.productId,
         productName: product?.modelName ?? 'Unknown',
-        brandName: product?.brand.name ?? '',
-        categoryName: product?.category.name ?? '',
+        brandName: product?.brand?.name ?? '',
+        categoryName: product?.category?.name ?? '',
         totalQuantity: item._sum.quantity ?? 0,
       };
     });
@@ -624,8 +624,8 @@ export async function getProfitReport(req: Request, res: Response, next: NextFun
         profitByProduct.set(pid, {
           productId: pid,
           productName: item.product.modelName,
-          brandName: item.product.brand.name,
-          categoryName: item.product.category.name,
+          brandName: item.product.brand?.name ?? '',
+          categoryName: item.product.category?.name ?? '',
           totalQuantity: quantity,
           totalSales: sales,
           totalCost: cost,
@@ -776,8 +776,8 @@ export async function getProductReport(req: Request, res: Response, next: NextFu
       return {
         productId: p.id,
         productName: p.modelName,
-        brandName: p.brand.name,
-        categoryName: p.category.name,
+        brandName: p.brand?.name ?? '',
+        categoryName: p.category?.name ?? '',
         purchasePrice: p.purchasePrice ? Number(p.purchasePrice) : null,
         cashPrice: Number(p.cashPrice),
         creditPrice: Number(p.creditPrice),

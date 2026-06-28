@@ -4,11 +4,11 @@ import * as storesService from './stores.service';
 
 const CreateStoreSchema = z.object({
   name: z.string().min(1, 'Store name is required'),
-  address: z.string().min(1, 'Address is required'),
-  city: z.string().min(1, 'City is required'),
-  pincode: z.string().min(1, 'Pincode is required'),
-  mobile: z.string().min(10, 'Valid mobile number is required'),
-  email: z.string().email('Valid email is required'),
+  address: z.string().optional().default(''),
+  city: z.string().optional().default(''),
+  pincode: z.string().optional().default(''),
+  mobile: z.string().optional().default(''),
+  email: z.string().optional().default(''),
 });
 const UpdateStoreSchema = CreateStoreSchema.partial();
 

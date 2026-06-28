@@ -34,22 +34,40 @@ export async function getAllByBrand(brandId: string) {
   });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyRecord = Record<string, any>;
+
 export async function create(
   userId: string,
-  data: { name: string; brandId: string; imageUrl?: string | null }
+  data: { name: string; brandId?: string | undefined; imageUrl?: string | null | undefined }
 ) {
-  const category = await prisma.category.create({ data });
+  const createData: AnyRecord = {
+    name: data.name,
+    imageUrl: data.imageUrl ?? null,
+  };
+  if (data.brandId) {
+    createData.brandId = data.brandId;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const category = await (prisma.category.create as any)({ data: createData });
   await createLog(userId, 'CATEGORY_CREATION', { categoryId: category.id });
   return category;
 }
 
 export async function update(
   id: string,
-  data: { name?: string; brandId?: string; imageUrl?: string | null }
+  data: { name?: string; brandId?: string | undefined; imageUrl?: string | null | undefined }
 ) {
-  return prisma.category.update({
+  const updateData: AnyRecord = {};
+  if (data.name !== undefined) updateData.name = data.name;
+  if (data.imageUrl !== undefined) updateData.imageUrl = data.imageUrl;
+  if (data.brandId) updateData.brandId = data.brandId;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (prisma.category.update as any)({
     where: { id },
-    data,
+    data: updateData,
     include: { brand: { select: { id: true, name: true } } },
   });
 }

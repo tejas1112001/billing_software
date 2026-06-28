@@ -4,7 +4,7 @@ import * as brandsService from './brands.service';
 
 const CreateBrandSchema = z.object({
   name: z.string().min(1, 'Brand name is required'),
-  imageUrl: z.string().url().optional().nullable(),
+  imageUrl: z.string().optional().nullable().transform(v => (!v || v.trim() === '' || v.startsWith('blob:')) ? null : v),
 });
 
 const UpdateBrandSchema = CreateBrandSchema.partial();

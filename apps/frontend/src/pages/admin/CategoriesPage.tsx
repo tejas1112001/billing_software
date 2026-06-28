@@ -26,7 +26,7 @@ import type { Category, Brand } from '@/types';
 
 const schema = z.object({
   name: z.string().min(1, 'Name required'),
-  brandId: z.string().min(1, 'Brand required'),
+  brandId: z.string().optional(),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -68,7 +68,10 @@ export default function CategoriesPage() {
       qc.invalidateQueries({ queryKey: ['categories'] });
       closeDialog();
     },
-    onError: () => toast.error('Failed to create category'),
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { error?: string; details?: unknown } } })?.response?.data?.error;
+      toast.error(msg || 'Failed to create category');
+    },
   });
 
   const updateMut = useMutation({
@@ -79,7 +82,10 @@ export default function CategoriesPage() {
       qc.invalidateQueries({ queryKey: ['categories'] });
       closeDialog();
     },
-    onError: () => toast.error('Failed to update category'),
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { error?: string; details?: unknown } } })?.response?.data?.error;
+      toast.error(msg || 'Failed to update category');
+    },
   });
 
   const deleteMut = useMutation({
@@ -252,9 +258,6 @@ export default function CategoriesPage() {
                   ))}
                 </SelectContent>
               </Select>
-              {errors.brandId && (
-                <p className="text-xs text-destructive">{errors.brandId.message}</p>
-              )}
             </div>
             <div>
               <Label>Category Image</Label>

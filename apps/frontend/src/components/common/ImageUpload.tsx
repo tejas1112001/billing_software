@@ -3,6 +3,7 @@ import { Upload, Camera, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { validateImageFile } from '@/utils/imageValidation';
 import { resolveImageUrl } from '@/utils/imageUrl';
+import { compressImage } from '@/utils/imageCompression';
 
 interface ImageUploadProps {
   value?: string | null;
@@ -17,6 +18,9 @@ export function ImageUpload({ value, onChange, className, disabled = false }: Im
   const previewObjectUrl = useRef<string | null>(null);
   const [preview, setPreview] = useState<string | null>(value || null);
   const [error, setError] = useState<string | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
+
+  const isPending = disabled || isCompressing;
 
   useEffect(() => {
     setPreview(value ? resolveImageUrl(value) : null);
@@ -37,20 +41,41 @@ export function ImageUpload({ value, onChange, className, disabled = false }: Im
     }
   };
 
-  const handleFile = (file: File) => {
-    const validationError = validateImageFile(file);
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-
+  const handleFile = async (file: File) => {
     setError(null);
-    clearPreviewObjectUrl();
+    setIsCompressing(true);
 
-    const url = URL.createObjectURL(file);
-    previewObjectUrl.current = url;
-    setPreview(url);
-    onChange(file, url);
+    try {
+      const processedFile = await compressImage(file);
+      const validationError = validateImageFile(processedFile);
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
+
+      clearPreviewObjectUrl();
+
+      const url = URL.createObjectURL(processedFile);
+      previewObjectUrl.current = url;
+      setPreview(url);
+      onChange(processedFile, url);
+    } catch (err) {
+      console.error('Image compression failed, using original file:', err);
+      const validationError = validateImageFile(file);
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
+
+      clearPreviewObjectUrl();
+
+      const url = URL.createObjectURL(file);
+      previewObjectUrl.current = url;
+      setPreview(url);
+      onChange(file, url);
+    } finally {
+      setIsCompressing(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,7 +86,7 @@ export function ImageUpload({ value, onChange, className, disabled = false }: Im
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    if (disabled) return;
+    if (isPending) return;
     const file = e.dataTransfer.files?.[0];
     if (file) handleFile(file);
   };
@@ -78,7 +103,7 @@ export function ImageUpload({ value, onChange, className, disabled = false }: Im
       <div className={className}>
         <div className="relative w-32 h-32">
           <img src={preview} alt="Preview" className="w-full h-full object-cover rounded-md border" />
-          {disabled && (
+          {isPending && (
             <div className="absolute inset-0 flex items-center justify-center rounded-md bg-background/70">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
@@ -89,14 +114,18 @@ export function ImageUpload({ value, onChange, className, disabled = false }: Im
             size="icon"
             className="absolute -top-2 -right-2 h-6 w-6"
             onClick={remove}
-            disabled={disabled}
+            disabled={isPending}
             aria-label="Remove image"
           >
             <X className="h-3 w-3" />
           </Button>
         </div>
         <p className="text-xs text-muted-foreground mt-1">
-          {disabled ? 'Uploading image...' : 'Tap × to replace image'}
+          {isCompressing 
+            ? 'Optimizing image...' 
+            : disabled 
+              ? 'Uploading image...' 
+              : 'Tap × to replace image'}
         </p>
       </div>
     );
@@ -106,20 +135,20 @@ export function ImageUpload({ value, onChange, className, disabled = false }: Im
     <div className={className}>
       <div
         className="border-2 border-dashed rounded-md p-4 flex flex-col items-center gap-2 cursor-pointer hover:border-primary transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-        onClick={() => !disabled && galleryRef.current?.click()}
+        onClick={() => !isPending && galleryRef.current?.click()}
         onDrop={handleDrop}
         onDragOver={(e) => e.preventDefault()}
         role="button"
-        tabIndex={disabled ? -1 : 0}
-        onKeyDown={(e) => e.key === 'Enter' && !disabled && galleryRef.current?.click()}
+        tabIndex={isPending ? -1 : 0}
+        onKeyDown={(e) => e.key === 'Enter' && !isPending && galleryRef.current?.click()}
         aria-label="Upload image from gallery"
-        aria-disabled={disabled}
+        aria-disabled={isPending}
       >
         <Upload className="h-7 w-7 text-muted-foreground" />
         <p className="text-sm text-muted-foreground text-center">
           Click or drag to upload
           <br />
-          <span className="text-xs">JPG, JPEG, PNG, WebP (max 3 MB)</span>
+          <span className="text-xs">JPG, JPEG, PNG, WebP (max 10 MB)</span>
         </p>
       </div>
 
@@ -129,10 +158,14 @@ export function ImageUpload({ value, onChange, className, disabled = false }: Im
         size="sm"
         className="mt-2 w-full gap-2"
         onClick={() => cameraRef.current?.click()}
-        disabled={disabled}
+        disabled={isPending}
       >
-        <Camera className="h-4 w-4" />
-        Take Photo
+        {isCompressing ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Camera className="h-4 w-4" />
+        )}
+        {isCompressing ? 'Optimizing...' : 'Take Photo'}
       </Button>
 
       {error && (
@@ -147,7 +180,7 @@ export function ImageUpload({ value, onChange, className, disabled = false }: Im
         accept="image/*"
         className="hidden"
         onChange={handleChange}
-        disabled={disabled}
+        disabled={isPending}
       />
       <input
         ref={cameraRef}
@@ -156,7 +189,7 @@ export function ImageUpload({ value, onChange, className, disabled = false }: Im
         capture="environment"
         className="hidden"
         onChange={handleChange}
-        disabled={disabled}
+        disabled={isPending}
       />
     </div>
   );

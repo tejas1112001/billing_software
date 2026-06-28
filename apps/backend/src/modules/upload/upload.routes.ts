@@ -10,7 +10,7 @@ const router = Router();
 function handleUploadError(err: unknown): { status: number; message: string } {
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
-      return { status: 400, message: 'Image must be 5 MB or smaller' };
+      return { status: 400, message: 'Image must be 10 MB or smaller' };
     }
     if (err.code === 'LIMIT_UNEXPECTED_FILE') {
       return { status: 400, message: 'Unexpected upload field. Use a single image file.' };

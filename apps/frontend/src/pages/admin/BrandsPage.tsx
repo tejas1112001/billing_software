@@ -57,7 +57,10 @@ export default function BrandsPage() {
       qc.invalidateQueries({ queryKey: ['brands'] });
       closeDialog();
     },
-    onError: () => toast.error('Failed to create brand'),
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      toast.error(msg || 'Failed to create brand');
+    },
   });
 
   const updateMutation = useMutation({
@@ -68,7 +71,10 @@ export default function BrandsPage() {
       qc.invalidateQueries({ queryKey: ['brands'] });
       closeDialog();
     },
-    onError: () => toast.error('Failed to update brand'),
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      toast.error(msg || 'Failed to update brand');
+    },
   });
 
   const deleteMutation = useMutation({

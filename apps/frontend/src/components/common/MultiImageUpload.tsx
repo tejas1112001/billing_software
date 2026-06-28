@@ -3,6 +3,7 @@ import { Upload, Camera, X, Loader2, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { validateImageFile } from '@/utils/imageValidation';
 import { resolveImageUrl } from '@/utils/imageUrl';
+import { compressImage } from '@/utils/imageCompression';
 import { cn } from '@/lib/utils';
 
 export interface PendingImage {
@@ -36,6 +37,9 @@ export function MultiImageUpload({
   const cameraRef = useRef<HTMLInputElement>(null);
   const objectUrls = useRef<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
+
+  const isPending = disabled || isCompressing;
 
   useEffect(() => {
     return () => {
@@ -43,26 +47,44 @@ export function MultiImageUpload({
     };
   }, []);
 
-  const addFiles = (files: FileList | File[]) => {
+  const addFiles = async (files: FileList | File[]) => {
+    setIsCompressing(true);
+    setError(null);
     const next = [...images];
     let nextThumbnail = thumbnailUrl;
 
     for (const file of Array.from(files)) {
-      const validationError = validateImageFile(file);
-      if (validationError) {
-        setError(validationError);
-        continue;
-      }
+      try {
+        const compressedFile = await compressImage(file);
+        const validationError = validateImageFile(compressedFile);
+        if (validationError) {
+          setError(validationError);
+          continue;
+        }
 
-      const previewUrl = URL.createObjectURL(file);
-      objectUrls.current.push(previewUrl);
-      const id = createId();
-      next.push({ id, file, url: previewUrl, previewUrl, isExisting: false });
-      if (!nextThumbnail) nextThumbnail = previewUrl;
+        const previewUrl = URL.createObjectURL(compressedFile);
+        objectUrls.current.push(previewUrl);
+        const id = createId();
+        next.push({ id, file: compressedFile, url: previewUrl, previewUrl, isExisting: false });
+        if (!nextThumbnail) nextThumbnail = previewUrl;
+      } catch (err) {
+        console.error('Image compression failed, using original file:', err);
+        const validationError = validateImageFile(file);
+        if (validationError) {
+          setError(validationError);
+          continue;
+        }
+
+        const previewUrl = URL.createObjectURL(file);
+        objectUrls.current.push(previewUrl);
+        const id = createId();
+        next.push({ id, file, url: previewUrl, previewUrl, isExisting: false });
+        if (!nextThumbnail) nextThumbnail = previewUrl;
+      }
     }
 
-    setError(null);
     onChange(next, nextThumbnail);
+    setIsCompressing(false);
   };
 
   const removeImage = (id: string) => {
@@ -83,23 +105,23 @@ export function MultiImageUpload({
       <div
         className={cn(
           'border-2 border-dashed rounded-lg p-4 flex flex-col items-center gap-2 cursor-pointer hover:border-primary transition-colors',
-          disabled && 'opacity-60 cursor-not-allowed'
+          isPending && 'opacity-60 cursor-not-allowed'
         )}
-        onClick={() => !disabled && galleryRef.current?.click()}
+        onClick={() => !isPending && galleryRef.current?.click()}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           e.preventDefault();
-          if (!disabled && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+          if (!isPending && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
         }}
         role="button"
-        tabIndex={disabled ? -1 : 0}
-        onKeyDown={(e) => e.key === 'Enter' && !disabled && galleryRef.current?.click()}
+        tabIndex={isPending ? -1 : 0}
+        onKeyDown={(e) => e.key === 'Enter' && !isPending && galleryRef.current?.click()}
       >
         <Upload className="h-7 w-7 text-muted-foreground" />
         <p className="text-sm text-muted-foreground text-center">
           Click or drag to upload multiple images
           <br />
-          <span className="text-xs">JPG, JPEG, PNG, WebP (max 3 MB each)</span>
+          <span className="text-xs">JPG, JPEG, PNG, WebP (max 10 MB each)</span>
         </p>
       </div>
 
@@ -109,10 +131,14 @@ export function MultiImageUpload({
         size="sm"
         className="mt-2 w-full gap-2"
         onClick={() => cameraRef.current?.click()}
-        disabled={disabled}
+        disabled={isPending}
       >
-        <Camera className="h-4 w-4" />
-        Take Photo
+        {isCompressing ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Camera className="h-4 w-4" />
+        )}
+        {isCompressing ? 'Optimizing...' : 'Take Photo'}
       </Button>
 
       {error && (
@@ -145,7 +171,7 @@ export function MultiImageUpload({
                     isThumb ? 'bg-primary text-primary-foreground' : 'bg-black/50 text-white opacity-0 group-hover:opacity-100'
                   )}
                   title="Set as thumbnail"
-                  disabled={disabled}
+                  disabled={isPending}
                 >
                   <Star className="h-3 w-3" />
                 </button>
@@ -155,7 +181,7 @@ export function MultiImageUpload({
                   size="icon"
                   className="absolute -top-1.5 -right-1.5 h-5 w-5"
                   onClick={() => removeImage(img.id)}
-                  disabled={disabled}
+                  disabled={isPending}
                 >
                   <X className="h-3 w-3" />
                 </Button>
@@ -165,10 +191,10 @@ export function MultiImageUpload({
         </div>
       )}
 
-      {disabled && (
+      {isPending && (
         <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
           <Loader2 className="h-3 w-3 animate-spin" />
-          Uploading images...
+          {isCompressing ? 'Optimizing images...' : 'Uploading images...'}
         </div>
       )}
 
@@ -179,7 +205,7 @@ export function MultiImageUpload({
         multiple
         className="hidden"
         onChange={(e) => e.target.files && addFiles(e.target.files)}
-        disabled={disabled}
+        disabled={isPending}
       />
       <input
         ref={cameraRef}
@@ -188,7 +214,7 @@ export function MultiImageUpload({
         capture="environment"
         className="hidden"
         onChange={(e) => e.target.files && addFiles(e.target.files)}
-        disabled={disabled}
+        disabled={isPending}
       />
     </div>
   );

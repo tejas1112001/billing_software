@@ -4,8 +4,8 @@ import * as categoriesService from './categories.service';
 
 const CreateCategorySchema = z.object({
   name: z.string().min(1, 'Category name is required'),
-  brandId: z.string().min(1, 'Brand is required'),
-  imageUrl: z.string().url().optional().nullable(),
+  brandId: z.string().optional().nullable().transform(v => v || undefined),
+  imageUrl: z.string().optional().nullable().transform(v => (!v || v.trim() === '' || v.startsWith('blob:')) ? null : v),
 });
 const UpdateCategorySchema = CreateCategorySchema.partial();
 

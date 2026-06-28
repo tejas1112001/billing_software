@@ -42,12 +42,12 @@ const operatorNav: NavItem[] = [
 ];
 
 const adminNav: NavItem[] = [
+  { id: 'admin', to: '/admin', icon: Settings, label: 'Admin Panel' },
   { id: 'dashboard', to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { id: 'billing', icon: FileText, label: 'Billing', children: billingChildren },
   { id: 'receipts', icon: Receipt, label: 'Receipts', children: receiptChildren },
   { id: 'stock', to: '/stock-reports', icon: BarChart3, label: 'Stock Report' },
   { id: 'ledger', to: '/ledger', icon: BookOpen, label: 'Ledger' },
-  { id: 'admin', to: '/admin', icon: Settings, label: 'Admin Panel' },
 ];
 
 const adminReportItems: NavChild[] = [
@@ -112,7 +112,7 @@ export function AppLayout() {
             <Zap className="h-4 w-4 text-white" />
           </div>
           <div>
-            <h2 className="font-bold text-sm text-white leading-tight">Software</h2>
+            <h2 className="font-bold text-sm text-white leading-tight">GUNAV ENTERPRISES</h2>
             <p className="text-[10px] text-indigo-300 leading-tight">Management System</p>
           </div>
         </div>
@@ -295,7 +295,7 @@ export function AppLayout() {
           <Button variant="ghost" size="icon" className="lg:hidden shrink-0" onClick={() => setSidebarOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="text-sm font-semibold lg:hidden text-primary truncate">Software</span>
+          <span className="text-sm font-semibold lg:hidden text-primary truncate">GUNAV ENTERPRISES</span>
           <div className="flex-1" />
           <div className="flex items-center gap-2 sm:gap-3">
             {user?.operatorType && (

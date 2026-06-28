@@ -13,6 +13,9 @@ function getUploadErrorMessage(error: unknown): string {
     if (error.response?.status === 403) {
       return 'You do not have permission to upload images.';
     }
+    if (error.response?.status === 413) {
+      return 'The image file size is too large for the server. Try using a smaller or compressed image.';
+    }
     if (!error.response) {
       return 'Unable to reach the server. Check your connection and try again.';
     }

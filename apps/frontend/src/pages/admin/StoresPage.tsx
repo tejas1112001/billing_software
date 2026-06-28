@@ -20,8 +20,12 @@ import { usePagination } from '@/hooks/usePagination';
 import type { Store } from '@/types';
 
 const schema = z.object({
-  name: z.string().min(1), address: z.string().min(1), city: z.string().min(1),
-  pincode: z.string().min(1), mobile: z.string().min(10), email: z.string().email(),
+  name: z.string().min(1, 'Store Name required'),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  pincode: z.string().optional(),
+  mobile: z.string().optional(),
+  email: z.string().optional(),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -123,7 +127,7 @@ export default function StoresPage() {
           <DialogHeader><DialogTitle>{editItem ? 'Edit Store' : 'Add Store'}</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit((d) => editItem ? updateMut.mutate(d) : createMut.mutate(d))} className="space-y-3">
             {fields.map(({ name, label, type }) => (
-              <div key={name}><Label>{label}</Label><Input type={type} {...register(name)} />{errors[name] && <p className="text-xs text-destructive">{errors[name]?.message}</p>}</div>
+              <div key={name}><Label>{label}{name === 'name' && ' *'}</Label><Input type={type} {...register(name)} />{name === 'name' && errors.name && <p className="text-xs text-destructive">{errors.name?.message}</p>}</div>
             ))}
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={closeDialog}>Cancel</Button>

@@ -13,14 +13,14 @@ const imageUrlTransform = z
 
 const CreateProductSchema = z.object({
   modelName: z.string().min(1, 'Model name is required'),
-  brandId: z.string().min(1, 'Brand is required'),
-  categoryId: z.string().min(1, 'Category is required'),
+  brandId: z.string().optional().transform(v => v || undefined),
+  categoryId: z.string().optional().transform(v => v || undefined),
   imageUrl: imageUrlTransform,
   images: z.array(z.string()).optional(),
   thumbnailUrl: imageUrlTransform,
-  mrp: z.coerce.number().positive('MRP must be positive'),
-  cashPrice: z.coerce.number().positive('Cash price must be positive'),
-  creditPrice: z.coerce.number().positive('Credit price must be positive'),
+  mrp: z.coerce.number().optional().default(0),
+  cashPrice: z.coerce.number().optional().default(0),
+  creditPrice: z.coerce.number().optional().default(0),
   purchasePrice: z
     .union([
       z.coerce.number().positive('Purchase price must be positive'),
@@ -28,7 +28,7 @@ const CreateProductSchema = z.object({
     ])
     .optional()
     .nullable(),
-  availableQty: z.coerce.number().int().min(0, 'Quantity cannot be negative'),
+  availableQty: z.coerce.number().int().min(0).optional().default(0),
   isNewArrival: z.coerce.boolean().optional(),
 });
 const UpdateProductSchema = CreateProductSchema.partial();

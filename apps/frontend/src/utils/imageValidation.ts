@@ -1,4 +1,4 @@
-export const MAX_IMAGE_SIZE_BYTES = 3 * 1024 * 1024;
+export const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 
 const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg',
@@ -18,7 +18,7 @@ function getExtension(fileName: string): string {
 export function validateImageFile(file: File): string | null {
   if (file.size > MAX_IMAGE_SIZE_BYTES) {
     const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
-    return `Image must be 3 MB or smaller (selected: ${sizeMb} MB)`;
+    return `Image must be 10 MB or smaller (selected: ${sizeMb} MB)`;
   }
 
   const extension = getExtension(file.name);

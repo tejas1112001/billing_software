@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/prisma';
 import { buildPaginationArgs, buildPaginatedResponse } from '../../utils/paginate';
 import { createLog } from '../user-logs/userLog.service';
+import { AppError } from '../../middleware/errorHandler';
 import { Request } from 'express';
 
 function normalizeImageUrl(url: string | null | undefined): string | null {
@@ -98,16 +99,16 @@ export async function create(
   userId: string,
   data: {
     modelName: string;
-    brandId: string;
-    categoryId: string;
+    brandId?: string;
+    categoryId?: string;
     imageUrl?: string | null;
     images?: string[];
     thumbnailUrl?: string | null;
-    mrp: number;
-    cashPrice: number;
-    creditPrice: number;
+    mrp?: number;
+    cashPrice?: number;
+    creditPrice?: number;
     purchasePrice?: number | null;
-    availableQty: number;
+    availableQty?: number;
     isNewArrival?: boolean;
   }
 ) {
@@ -127,14 +128,14 @@ export async function create(
   const product = await prisma.product.create({
     data: {
       modelName: data.modelName,
-      brandId: data.brandId,
-      categoryId: data.categoryId,
+      brandId: data.brandId || undefined,
+      categoryId: data.categoryId || undefined,
       imageUrl: thumbnail,
-      mrp: data.mrp,
-      cashPrice: data.cashPrice,
-      creditPrice: data.creditPrice,
+      mrp: data.mrp ?? 0,
+      cashPrice: data.cashPrice ?? 0,
+      creditPrice: data.creditPrice ?? 0,
       purchasePrice: data.purchasePrice,
-      availableQty: data.availableQty,
+      availableQty: data.availableQty ?? 0,
       isNewArrival: data.isNewArrival ?? false,
       images: {
         create: imageList
@@ -179,8 +180,10 @@ export async function update(
   });
   if (!existing) throw new Error('Product not found');
 
-  const { images, thumbnailUrl, imageUrl, ...rest } = data;
+  const { images, thumbnailUrl, imageUrl, brandId, categoryId, ...rest } = data;
   const updateData: Record<string, unknown> = { ...rest };
+  if (brandId) updateData.brandId = brandId;       // skip empty string
+  if (categoryId) updateData.categoryId = categoryId; // skip empty string
 
   if (images !== undefined) {
     const thumbnail = await syncProductImages(id, images, thumbnailUrl ?? imageUrl);
@@ -213,7 +216,7 @@ export async function deleteProduct(id: string, userId: string) {
   });
 
   if (orderItemCount > 0) {
-    throw new Error('Cannot delete product that has been used in orders');
+    throw new AppError(409, 'Cannot delete a product that has been used in orders. You can update its quantity to 0 instead.');
   }
 
   const product = await prisma.product.delete({
