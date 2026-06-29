@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { TrendingUp, DollarSign, Percent, Package } from 'lucide-react';
+import { TrendingUp, DollarSign, Percent, Package, FileSpreadsheet, FileDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { dashboardService } from '@/services/dashboardService';
-import { formatCurrency } from '@/utils/formatCurrency';
+import { formatCurrency, formatCurrencyForPdf } from '@/utils/formatCurrency';
 import { brandService } from '@/services/brandService';
 import { categoryService } from '@/services/categoryService';
 import { storeService } from '@/services/storeService';
@@ -17,6 +18,8 @@ import { ReportEntityFilterFields } from '@/components/reports/ReportEntityFilte
 import { ReportKpiCard } from '@/components/reports/ReportKpiCard';
 import { ReportPagination } from '@/components/reports/ReportPagination';
 import { cn } from '@/lib/utils';
+import { exportToExcel, exportToPdf } from '@/utils/exportUtils';
+import { toast } from 'sonner';
 
 export default function ProfitReport() {
   const [startDate, setStartDate] = useState('');
@@ -26,6 +29,7 @@ export default function ProfitReport() {
   const [storeId, setStoreId] = useState('');
   const [productId, setProductId] = useState('');
   const [page, setPage] = useState(1);
+  const [isExporting, setIsExporting] = useState(false);
   const limit = 20;
 
   const { data: brands } = useQuery({ queryKey: ['brands'], queryFn: () => brandService.getAll() });
@@ -59,6 +63,8 @@ export default function ProfitReport() {
       page,
       limit,
     }),
+    refetchInterval: 60000,
+    staleTime: 0,
   });
 
   const activeCount = countReportFilters(startDate, endDate, brandId, categoryId, storeId, productId);
@@ -80,11 +86,85 @@ export default function ProfitReport() {
     setPage(1);
   };
 
+  const fetchAllForExport = async () => {
+    setIsExporting(true);
+    try {
+      const res = await dashboardService.getProfitReport({
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        brandId: reportFilterValue(brandId),
+        categoryId: reportFilterValue(categoryId),
+        storeId: reportFilterValue(storeId),
+        productId: reportFilterValue(productId),
+        page: 1,
+        limit: 10000,
+      });
+      return res.items as Record<string, unknown>[];
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const exportColumns = [
+    { header: 'Product Name', accessor: 'productName', width: 30 },
+    { header: 'Brand', accessor: 'brandName', width: 18 },
+    { header: 'Qty', accessor: 'totalQuantity', width: 10 },
+    { header: 'Sales', accessor: (r: Record<string, unknown>) => formatCurrencyForPdf(r.totalSales as number), width: 18 },
+    { header: 'Cost', accessor: (r: Record<string, unknown>) => formatCurrencyForPdf(r.totalCost as number), width: 18 },
+    { header: 'Profit', accessor: (r: Record<string, unknown>) => formatCurrencyForPdf(r.totalProfit as number), width: 18 },
+    {
+      header: 'Margin %',
+      accessor: (r: Record<string, unknown>) => {
+        const sales = (r.totalSales as number) || 0;
+        const profit = (r.totalProfit as number) || 0;
+        return sales > 0 ? `${((profit / sales) * 100).toFixed(1)}%` : '0%';
+      },
+      width: 14,
+    },
+  ];
+
+  const handleExportExcel = async () => {
+    try {
+      const rows = await fetchAllForExport();
+      const dateTag = startDate && endDate ? `${startDate}_to_${endDate}` : new Date().toISOString().slice(0, 10);
+      exportToExcel(rows, exportColumns, `Profit_Report_${dateTag}`);
+      toast.success('Excel downloaded');
+    } catch {
+      toast.error('Failed to export Excel');
+    }
+  };
+
+  const handleExportPdf = async () => {
+    try {
+      const rows = await fetchAllForExport();
+      const dateTag = startDate && endDate ? `${startDate} to ${endDate}` : new Date().toLocaleDateString('en-IN');
+      exportToPdf(rows, exportColumns, {
+        title: 'Profit & Loss Report',
+        subtitle: `Period: ${dateTag}  |  Total Products: ${rows.length}`,
+        filename: `Profit_Report_${new Date().toISOString().slice(0, 10)}`,
+        orientation: 'landscape',
+      });
+      toast.success('PDF downloaded');
+    } catch {
+      toast.error('Failed to export PDF');
+    }
+  };
+
   return (
     <div className="space-y-4 pb-6">
       <ReportPageHeader
         title="Profit Report"
         description="Sales, cost, profit and margin by product"
+        action={
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={isExporting} className="gap-1.5">
+              <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportPdf} disabled={isExporting} className="gap-1.5">
+              <FileDown className="h-3.5 w-3.5" /> PDF
+            </Button>
+          </div>
+        }
       />
 
       <ReportResponsiveFilters activeCount={activeCount} onReset={handleReset}>

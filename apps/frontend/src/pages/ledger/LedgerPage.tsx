@@ -13,6 +13,7 @@ import {
   Banknote,
   CreditCard,
   FileSpreadsheet,
+  FileDown,
   BookOpen,
   TrendingUp,
   TrendingDown,
@@ -590,7 +591,22 @@ export default function LedgerPage() {
       });
       toast.success('Ledger exported to Excel');
     } catch {
-      toast.error('Failed to export ledger');
+      toast.error('Failed to export ledger to Excel');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!selectedStore) return;
+    setExporting(true);
+    try {
+      await ledgerService.exportPdf(selectedStore.id, {
+        operatorType: isAdmin && operatorFilter !== 'ALL' ? operatorFilter : undefined,
+      });
+      toast.success('Ledger exported to PDF');
+    } catch {
+      toast.error('Failed to export ledger to PDF');
     } finally {
       setExporting(false);
     }
@@ -641,17 +657,28 @@ export default function LedgerPage() {
               <p className="text-xs text-muted-foreground">{selectedStore.city}</p>
             )}
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="shrink-0 h-9 text-xs gap-1.5"
-            onClick={handleExportExcel}
-            disabled={exporting || isLoading}
-          >
-            {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />}
-            <span className="hidden sm:inline">Export Excel</span>
-            <span className="sm:hidden">Export</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0 h-9 text-xs gap-1.5"
+              onClick={handleExportExcel}
+              disabled={exporting || isLoading}
+            >
+              {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">Excel</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0 h-9 text-xs gap-1.5"
+              onClick={handleExportPdf}
+              disabled={exporting || isLoading}
+            >
+              {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">PDF</span>
+            </Button>
+          </div>
         </div>
       </div>
 

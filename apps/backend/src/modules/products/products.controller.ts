@@ -21,13 +21,10 @@ const CreateProductSchema = z.object({
   mrp: z.coerce.number().optional().default(0),
   cashPrice: z.coerce.number().optional().default(0),
   creditPrice: z.coerce.number().optional().default(0),
-  purchasePrice: z
-    .union([
-      z.coerce.number().positive('Purchase price must be positive'),
-      z.coerce.number().refine((val) => val === 0, 'Purchase price must be positive or 0'),
-    ])
-    .optional()
-    .nullable(),
+  purchasePrice: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? null : val),
+    z.coerce.number().min(0, 'Purchase price must be positive or 0').nullable().optional()
+  ),
   availableQty: z.coerce.number().int().min(0).optional().default(0),
   isNewArrival: z.coerce.boolean().optional(),
 });

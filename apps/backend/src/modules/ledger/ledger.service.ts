@@ -116,6 +116,27 @@ export async function upsertOpeningBalance(storeId: string, amount: number) {
   });
 }
 
+export async function getClosingBalance(storeId: string) {
+  const openingBalanceRecord = await prisma.openingBalance.findUnique({ where: { storeId } });
+  let balance = openingBalanceRecord ? Number(openingBalanceRecord.amount) : 0;
+
+  const aggregates = await prisma.ledgerEntry.groupBy({
+    by: ['voucherType'],
+    where: { storeId },
+    _sum: { amount: true },
+  });
+
+  for (const agg of aggregates) {
+    if (agg.voucherType === 'ORDER') {
+      balance += Number(agg._sum.amount || 0);
+    } else {
+      balance -= Number(agg._sum.amount || 0);
+    }
+  }
+
+  return balance;
+}
+
 export async function getAllEntries(storeId: string, query: Request['query']) {
   const search = query.search ? String(query.search) : undefined;
   const dateFrom = query.dateFrom ? new Date(String(query.dateFrom)) : undefined;

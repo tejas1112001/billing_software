@@ -14,7 +14,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { EmptyState } from '@/components/common/EmptyState';
 import { SearchInput } from '@/components/common/SearchInput';
-import { PageHeader } from '@/components/common/PageHeader';
 import { StoreCombobox } from '@/components/common/StoreCombobox';
 import { BillPreviewModal } from '@/components/common/BillPreviewModal';
 import { PriceSelectionModal } from '@/components/common/PriceSelectionModal';
@@ -127,7 +126,7 @@ function CartSheet({
   );
 }
 
-export default function GenerateBillPage() {
+export default function NewArrivalsPage() {
   const qc = useQueryClient();
   const { user } = useAuthStore();
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
@@ -162,10 +161,11 @@ export default function GenerateBillPage() {
     enabled: true,
   });
   const { data: productsData, isLoading: loadingProducts } = useQuery({
-    queryKey: ['products', selectedStore?.id, selectedBrand, selectedCategory, search, sortOrder],
+    queryKey: ['products-new-arrivals', selectedStore?.id, selectedBrand, selectedCategory, search, sortOrder],
     queryFn: () => productService.list({
       pageSize: 50,
       inStock: true,
+      isNewArrival: true,           // ← only new arrivals
       brandId: selectedBrand && selectedBrand !== '_all' ? selectedBrand : undefined,
       categoryId: selectedCategory && selectedCategory !== '_all' ? selectedCategory : undefined,
       search: search || undefined,
@@ -185,8 +185,6 @@ export default function GenerateBillPage() {
       setBillModalOpen(true);
       clearCart();
       qc.invalidateQueries({ queryKey: ['products'] });
-      qc.invalidateQueries({ queryKey: ['ledger'] });
-      qc.invalidateQueries({ queryKey: ['store-balance', selectedStore?.id] });
     },
     onError: (e: unknown) => {
       const response = (e as { response?: { data?: { error?: string; details?: string } } })?.response?.data;
@@ -237,8 +235,11 @@ export default function GenerateBillPage() {
       <div className="max-w-md mx-auto px-4 py-12 flex flex-col justify-center min-h-[70vh]">
         <Card className="shadow-lg border rounded-2xl overflow-hidden p-6 bg-white space-y-6">
           <div className="space-y-2 text-center">
-            <h1 className="text-2xl font-extrabold tracking-tight text-foreground">Generate Bill</h1>
-            <p className="text-sm text-muted-foreground">Select a store from below to begin your billing session.</p>
+            <div className="flex items-center justify-center gap-2">
+              <Sparkles className="h-6 w-6 text-pink-500" />
+              <h1 className="text-2xl font-extrabold tracking-tight text-foreground">New Arrivals</h1>
+            </div>
+            <p className="text-sm text-muted-foreground">Select a store to browse and bill new arrival products.</p>
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Select Store</Label>
@@ -251,7 +252,7 @@ export default function GenerateBillPage() {
 
   const FilterBar = () => (
     <div className="space-y-2">
-      <SearchInput placeholder="Search products by name, brand, or category..." onChange={setSearch} className="w-full h-10" />
+      <SearchInput placeholder="Search new arrivals by name, brand, or category..." onChange={setSearch} className="w-full h-10" />
       <div className="grid grid-cols-2 gap-2">
         <Select value={selectedBrand} onValueChange={(v) => { setSelectedBrand(v); setSelectedCategory(''); }}>
           <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Brand" /></SelectTrigger>
@@ -282,7 +283,10 @@ export default function GenerateBillPage() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="min-w-0">
-          <h1 className="font-bold text-base truncate">{selectedStore.name}</h1>
+          <h1 className="font-bold text-base truncate flex items-center gap-1.5">
+            <Sparkles className="h-4 w-4 text-pink-500 shrink-0" />
+            New Arrivals — {selectedStore.name}
+          </h1>
           <p className="text-xs text-muted-foreground">{selectedStore.city}</p>
         </div>
         <div className="ml-auto shrink-0 hidden lg:flex items-center gap-2">
@@ -311,7 +315,7 @@ export default function GenerateBillPage() {
               <SheetTrigger asChild>
                 <Button variant="outline" className="w-full h-10 gap-2">
                   <Filter className="h-4 w-4" />
-                  Filter &amp; Search Products
+                  Filter &amp; Search New Arrivals
                 </Button>
               </SheetTrigger>
               <SheetContent className="rounded-t-2xl">
@@ -329,7 +333,10 @@ export default function GenerateBillPage() {
               {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-48 rounded-xl animate-pulse" />)}
             </div>
           ) : products.length === 0 ? (
-            <EmptyState title="No products in stock" description="Products with zero stock are hidden from billing." />
+            <EmptyState
+              title="No new arrivals in stock"
+              description="No products marked as New Arrival are currently in stock for this store."
+            />
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
               {products.map((product) => {
@@ -350,12 +357,11 @@ export default function GenerateBillPage() {
                         className="h-full w-full"
                         imageClassName="rounded-t-xl"
                       />
-                      {product.isNewArrival && (
-                        <Badge className="absolute top-1.5 left-1.5 text-[9px] px-1.5 py-0 h-4 bg-gradient-to-r from-pink-500 to-purple-500 border-0 gap-0.5 z-30">
-                          <Sparkles className="h-2.5 w-2.5" />
-                          NEW
-                        </Badge>
-                      )}
+                      {/* Always show NEW badge since all products here are new arrivals */}
+                      <Badge className="absolute top-1.5 left-1.5 text-[9px] px-1.5 py-0 h-4 bg-gradient-to-r from-pink-500 to-purple-500 border-0 gap-0.5 z-30">
+                        <Sparkles className="h-2.5 w-2.5" />
+                        NEW
+                      </Badge>
                       <Badge
                         variant={stockLow ? 'warning' : 'success'}
                         className="absolute top-1.5 right-1.5 text-[9px] px-1.5 py-0 h-4 font-semibold tabular-nums z-30"

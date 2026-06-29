@@ -15,6 +15,7 @@ const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
 const HomePage = lazy(() => import('@/pages/dashboard/HomePage'));
 const GenerateBillPage = lazy(() => import('@/pages/billing/GenerateBillPage'));
 const GeneratedBillsPage = lazy(() => import('@/pages/billing/GeneratedBillsPage'));
+const NewArrivalsPage = lazy(() => import('@/pages/billing/NewArrivalsPage'));
 const GenerateReceiptPage = lazy(() => import('@/pages/receipts/GenerateReceiptPage'));
 const GeneratedReceiptsPage = lazy(() => import('@/pages/receipts/GeneratedReceiptsPage'));
 const LedgerPage = lazy(() => import('@/pages/ledger/LedgerPage'));
@@ -69,6 +70,7 @@ export default function App() {
               <Route element={<AppLayout />}>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/bills" element={<GenerateBillPage />} />
+                <Route path="/bills/new-arrivals" element={<NewArrivalsPage />} />
                 <Route path="/bills/generated" element={<GeneratedBillsPage />} />
                 <Route path="/receipts" element={<GenerateReceiptPage />} />
                 <Route path="/receipts/generated" element={<GeneratedReceiptsPage />} />

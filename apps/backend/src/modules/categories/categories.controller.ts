@@ -4,7 +4,7 @@ import * as categoriesService from './categories.service';
 
 const CreateCategorySchema = z.object({
   name: z.string().min(1, 'Category name is required'),
-  brandId: z.string().optional().nullable().transform(v => v || undefined),
+  brandIds: z.array(z.string()).optional().default([]),
   imageUrl: z.string().optional().nullable().transform(v => (!v || v.trim() === '' || v.startsWith('blob:')) ? null : v),
 });
 const UpdateCategorySchema = CreateCategorySchema.partial();
@@ -12,6 +12,13 @@ const UpdateCategorySchema = CreateCategorySchema.partial();
 export async function listCategories(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await categoriesService.list(req.query);
+    res.json(result);
+  } catch (e) { next(e); }
+}
+
+export async function getAllCategories(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await categoriesService.getAll();
     res.json(result);
   } catch (e) { next(e); }
 }

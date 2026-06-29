@@ -4,6 +4,24 @@ import { createLog } from '../user-logs/userLog.service';
 import { AppError } from '../../middleware/errorHandler';
 import { Request } from 'express';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyRecord = Record<string, any>;
+
+const categoryInclude = {
+  brand: { select: { id: true, name: true } },
+  categoryBrands: {
+    include: { brand: { select: { id: true, name: true } } },
+    orderBy: { brand: { name: 'asc' as const } },
+  },
+};
+
+function mapCategoryBrands(cat: AnyRecord) {
+  return {
+    ...cat,
+    brands: (cat.categoryBrands ?? []).map((cb: AnyRecord) => cb.brand),
+  };
+}
+
 export async function list(query: Request['query']) {
   const { page, pageSize, skip, take } = buildPaginationArgs(query);
   const search = query.search ? String(query.search) : undefined;
@@ -11,7 +29,7 @@ export async function list(query: Request['query']) {
 
   const where: Record<string, unknown> = {};
   if (search) where.name = { contains: search, mode: 'insensitive' };
-  if (brandId) where.brandId = brandId;
+  if (brandId) where.categoryBrands = { some: { brandId } };
 
   const [data, total] = await Promise.all([
     prisma.category.findMany({
@@ -19,57 +37,90 @@ export async function list(query: Request['query']) {
       skip,
       take,
       orderBy: { name: 'asc' },
-      include: { brand: { select: { id: true, name: true } } },
+      include: categoryInclude,
     }),
     prisma.category.count({ where }),
   ]);
 
-  return buildPaginatedResponse(data, total, page, pageSize);
+  return buildPaginatedResponse(data.map(mapCategoryBrands), total, page, pageSize);
+}
+
+export async function getAll() {
+  const categories = await prisma.category.findMany({
+    orderBy: { name: 'asc' },
+    include: categoryInclude,
+  });
+  return categories.map(mapCategoryBrands);
 }
 
 export async function getAllByBrand(brandId: string) {
-  return prisma.category.findMany({
-    where: { brandId },
+  const categories = await prisma.category.findMany({
+    where: { categoryBrands: { some: { brandId } } },
     orderBy: { name: 'asc' },
+    include: categoryInclude,
   });
+  return categories.map(mapCategoryBrands);
 }
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyRecord = Record<string, any>;
 
 export async function create(
   userId: string,
-  data: { name: string; brandId?: string | undefined; imageUrl?: string | null | undefined }
-) {
-  const createData: AnyRecord = {
-    name: data.name,
-    imageUrl: data.imageUrl ?? null,
-  };
-  if (data.brandId) {
-    createData.brandId = data.brandId;
+  data: {
+    name: string;
+    brandIds?: string[];
+    imageUrl?: string | null | undefined;
   }
+) {
+  const brandIds = data.brandIds && data.brandIds.length > 0 ? data.brandIds : [];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const category = await (prisma.category.create as any)({ data: createData });
+  const category = await prisma.category.create({
+    data: {
+      name: data.name,
+      imageUrl: data.imageUrl ?? null,
+      brandId: brandIds[0] ?? null,
+      categoryBrands: brandIds.length > 0
+        ? { create: brandIds.map((bid) => ({ brandId: bid })) }
+        : undefined,
+    },
+    include: categoryInclude,
+  });
+
   await createLog(userId, 'CATEGORY_CREATION', { categoryId: category.id });
-  return category;
+  return mapCategoryBrands(category);
 }
 
 export async function update(
   id: string,
-  data: { name?: string; brandId?: string | undefined; imageUrl?: string | null | undefined }
+  data: {
+    name?: string;
+    brandIds?: string[];
+    imageUrl?: string | null | undefined;
+  }
 ) {
   const updateData: AnyRecord = {};
   if (data.name !== undefined) updateData.name = data.name;
   if (data.imageUrl !== undefined) updateData.imageUrl = data.imageUrl;
-  if (data.brandId) updateData.brandId = data.brandId;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (prisma.category.update as any)({
+  if (data.brandIds !== undefined) {
+    const brandIds = data.brandIds;
+    updateData.brandId = brandIds.length > 0 ? brandIds[0] : null;
+
+    // Sync join table
+    await prisma.categoryBrand.deleteMany({ where: { categoryId: id } });
+    if (brandIds.length > 0) {
+      await prisma.categoryBrand.createMany({
+        data: brandIds.map((bid) => ({ categoryId: id, brandId: bid })),
+        skipDuplicates: true,
+      });
+    }
+  }
+
+  const category = await prisma.category.update({
     where: { id },
     data: updateData,
-    include: { brand: { select: { id: true, name: true } } },
+    include: categoryInclude,
   });
+
+  return mapCategoryBrands(category);
 }
 
 export async function remove(id: string) {
@@ -77,5 +128,6 @@ export async function remove(id: string) {
   if (productCount > 0) {
     throw new AppError(409, 'Cannot delete category with associated products');
   }
+  // CategoryBrand records cascade-deleted via onDelete: Cascade
   return prisma.category.delete({ where: { id } });
 }

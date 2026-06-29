@@ -109,12 +109,16 @@ export default function OperatorDashboard() {
     queryKey: ['personal-stats'],
     queryFn: dashboardService.getPersonalStats,
     refetchInterval: 30000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const { data: activityData, isLoading: loadingActivity } = useQuery<PaginatedResponse<UserLog>>({
     queryKey: ['personal-activity', activityPage, activityPageSize],
     queryFn: () => dashboardService.getPersonalActivity({ page: activityPage, pageSize: activityPageSize }),
     refetchInterval: 30000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const todaySalesFull = formatCurrency(data?.salesToday ?? 0);

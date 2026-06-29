@@ -3,7 +3,7 @@ import {
   Banknote, Package, TrendingUp, LayoutGrid,
   ArrowLeft, ChevronRight, BarChart2,
   ShoppingCart, DollarSign, SlidersHorizontal,
-  Activity, Sparkles,
+  Activity, Sparkles, FileText, Receipt,
 } from 'lucide-react';
 
 const reportCards = [
@@ -50,6 +50,28 @@ const reportCards = [
     iconBg: 'bg-amber-500/15 text-amber-500',
     tags: ['Stock History', 'Sales', 'Profit', 'Adjustments'],
     stat: { label: 'Report views', value: '4' },
+  },
+  {
+    to: '/billing/generated',
+    icon: FileText,
+    title: 'Generated Bills',
+    description:
+      'View, search, filter and export all generated bills by date range, store, or user.',
+    gradient: 'from-sky-500 to-blue-700',
+    iconBg: 'bg-sky-500/15 text-sky-500',
+    tags: ['Bills', 'Date Filter', 'Export Excel', 'Export PDF'],
+    stat: { label: 'Export formats', value: '2' },
+  },
+  {
+    to: '/receipts/generated',
+    icon: Receipt,
+    title: 'Generated Receipts',
+    description:
+      'View, search, filter and export all receipts by date range, store, payment method, or user.',
+    gradient: 'from-teal-500 to-emerald-700',
+    iconBg: 'bg-teal-500/15 text-teal-500',
+    tags: ['Receipts', 'Date Filter', 'Export Excel', 'Export PDF'],
+    stat: { label: 'Export formats', value: '2' },
   },
 ];
 
@@ -99,7 +121,7 @@ export default function ReportsIndex() {
           <div className="hidden sm:flex items-center gap-2">
             <div className="flex items-center gap-1.5 rounded-xl bg-muted px-3 py-2">
               <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium">4 Reports</span>
+              <span className="text-xs font-medium">6 Reports</span>
             </div>
           </div>
         </div>
@@ -128,7 +150,7 @@ export default function ReportsIndex() {
         <p className="text-xs font-semibold uppercase text-muted-foreground tracking-widest mb-3">
           Available Reports
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
           {reportCards.map(({ to, icon: Icon, title, description, gradient, iconBg, tags, stat }) => (
             <Link key={to} to={to} className="group block">
               <div className="relative h-full overflow-hidden rounded-2xl border bg-card shadow-sm hover:shadow-lg hover:border-primary/30 transition-all duration-200 active:scale-[0.99]">

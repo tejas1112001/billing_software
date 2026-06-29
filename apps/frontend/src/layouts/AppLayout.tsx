@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, Receipt, BookOpen, BarChart3,
-  Settings, Menu, X, LogOut, User, Zap, ChevronDown, FileBarChart,
+  Settings, Menu, X, LogOut, User, Zap, ChevronDown, FileBarChart, Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ type NavItem = {
 
 const billingChildren: NavChild[] = [
   { to: '/bills', label: 'New Bill', end: true },
+  { to: '/bills/new-arrivals', label: 'New Arrivals', end: true },
   { to: '/bills/generated', label: 'Generated Bills', end: false },
 ];
 

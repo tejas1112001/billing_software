@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Package, TrendingUp, DollarSign, Boxes, History,
+  Package, TrendingUp, DollarSign, Boxes, History, FileSpreadsheet, FileDown,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { dashboardService } from '@/services/dashboardService';
-import { formatCurrency } from '@/utils/formatCurrency';
+import { formatCurrency, formatCurrencyForPdf } from '@/utils/formatCurrency';
 import { formatDateTime } from '@/utils/formatDate';
 import { brandService } from '@/services/brandService';
 import { categoryService } from '@/services/categoryService';
@@ -27,6 +27,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { exportToExcel, exportToPdf } from '@/utils/exportUtils';
+import { toast } from 'sonner';
 
 type ProductReportItem = {
   productId: string;
@@ -59,44 +61,33 @@ function StockHistoryDialog({
   open,
   onClose,
 }: {
-  productId: string | null;
+  productId: string;
   productName: string;
   open: boolean;
   onClose: () => void;
 }) {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<StockHistoryEntry[]>({
     queryKey: ['product-stock-history', productId],
-    queryFn: () => dashboardService.getProductStockHistory(productId!),
-    enabled: !!productId && open,
+    queryFn: () => dashboardService.getProductStockHistory(productId),
+    enabled: open && !!productId,
   });
-
-  const history: StockHistoryEntry[] = data?.history ?? [];
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+      <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base">
-            <History className="h-4 w-4" />
-            Stock History — {productName}
-          </DialogTitle>
+          <DialogTitle className="truncate">Stock History: {productName}</DialogTitle>
         </DialogHeader>
-        <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+        <div className="flex-1 overflow-y-auto space-y-3 -mx-2 px-2 py-1">
           {isLoading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-14 w-full" />
-              ))}
-            </div>
-          ) : history.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              No stock movement records found for this product.
-            </p>
+            <p className="text-sm text-muted-foreground py-4">Loading stock history...</p>
+          ) : !data || data.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">No stock adjustments found.</p>
           ) : (
-            history.map((entry) => (
-              <div key={entry.id} className="rounded-lg border p-3 text-sm space-y-1">
+            data.map((entry) => (
+              <div key={entry.id} className="border-b pb-2 last:border-b-0 space-y-1">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="font-medium leading-snug">{entry.note}</p>
+                  <p className="text-sm font-medium leading-normal">{entry.note}</p>
                   {entry.delta !== undefined && (
                     <Badge
                       variant={entry.delta >= 0 ? 'success' : 'destructive'}
@@ -129,6 +120,7 @@ export default function ProductReport() {
   const [productId, setProductId] = useState('');
   const [page, setPage] = useState(1);
   const [historyProduct, setHistoryProduct] = useState<{ id: string; name: string } | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const limit = 20;
 
   const { data: brands } = useQuery({ queryKey: ['brands'], queryFn: () => brandService.getAll() });
@@ -162,6 +154,8 @@ export default function ProductReport() {
       page,
       limit,
     }),
+    refetchInterval: 60000,
+    staleTime: 0,
   });
 
   const activeCount = countReportFilters(startDate, endDate, brandId, categoryId, storeId, productId);
@@ -185,11 +179,81 @@ export default function ProductReport() {
 
   const items: ProductReportItem[] = data?.items ?? [];
 
+  const fetchAllForExport = async () => {
+    setIsExporting(true);
+    try {
+      const res = await dashboardService.getProductReport({
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        brandId: reportFilterValue(brandId),
+        categoryId: reportFilterValue(categoryId),
+        storeId: reportFilterValue(storeId),
+        productId: reportFilterValue(productId),
+        page: 1,
+        limit: 10000,
+      });
+      return res.items as Record<string, unknown>[];
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const exportColumns = [
+    { header: 'Product Name', accessor: 'productName', width: 30 },
+    { header: 'Brand', accessor: 'brandName', width: 18 },
+    { header: 'Category', accessor: 'categoryName', width: 18 },
+    { header: 'MRP', accessor: (r: Record<string, unknown>) => formatCurrencyForPdf(r.mrp as number), width: 14 },
+    { header: 'Gold Price', accessor: (r: Record<string, unknown>) => formatCurrencyForPdf(r.cashPrice as number), width: 14 },
+    { header: 'Platinum Price', accessor: (r: Record<string, unknown>) => formatCurrencyForPdf(r.creditPrice as number), width: 14 },
+    { header: 'Qty Added', accessor: 'totalQuantityAdded', width: 12 },
+    { header: 'Qty Sold', accessor: 'totalQuantitySold', width: 12 },
+    { header: 'Stock Left', accessor: 'currentRemainingStock', width: 12 },
+    { header: 'Revenue', accessor: (r: Record<string, unknown>) => formatCurrencyForPdf(r.totalSalesAmount as number), width: 16 },
+    { header: 'Profit', accessor: (r: Record<string, unknown>) => formatCurrencyForPdf(r.totalProfit as number), width: 16 },
+  ];
+
+  const handleExportExcel = async () => {
+    try {
+      const rows = await fetchAllForExport();
+      const dateTag = startDate && endDate ? `${startDate}_to_${endDate}` : new Date().toISOString().slice(0, 10);
+      exportToExcel(rows, exportColumns, `Product_Report_${dateTag}`);
+      toast.success('Excel downloaded');
+    } catch {
+      toast.error('Failed to export Excel');
+    }
+  };
+
+  const handleExportPdf = async () => {
+    try {
+      const rows = await fetchAllForExport();
+      const dateTag = startDate && endDate ? `${startDate} to ${endDate}` : new Date().toLocaleDateString('en-IN');
+      exportToPdf(rows, exportColumns, {
+        title: 'Product Stock & Sales Report',
+        subtitle: `Period: ${dateTag}  |  Total Products: ${rows.length}`,
+        filename: `Product_Report_${new Date().toISOString().slice(0, 10)}`,
+        orientation: 'landscape',
+      });
+      toast.success('PDF downloaded');
+    } catch {
+      toast.error('Failed to export PDF');
+    }
+  };
+
   return (
     <div className="space-y-4 pb-6">
       <ReportPageHeader
         title="Product Report"
         description="Complete product history — stock, sales, pricing, and profit"
+        action={
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={isExporting} className="gap-1.5">
+              <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportPdf} disabled={isExporting} className="gap-1.5">
+              <FileDown className="h-3.5 w-3.5" /> PDF
+            </Button>
+          </div>
+        }
       />
 
       <ReportResponsiveFilters activeCount={activeCount} onReset={handleReset}>

@@ -24,6 +24,13 @@ export async function upsertOpeningBalance(req: Request, res: Response, next: Ne
   } catch (e) { next(e); }
 }
 
+export async function getClosingBalance(req: Request, res: Response, next: NextFunction) {
+  try {
+    const balance = await ledgerService.getClosingBalance(req.params.storeId);
+    res.json({ balance });
+  } catch (e) { next(e); }
+}
+
 export async function exportLedgerPdf(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await ledgerService.getLedger(req.params.storeId, { ...req.query, pageSize: '100000', page: '1' } as any);

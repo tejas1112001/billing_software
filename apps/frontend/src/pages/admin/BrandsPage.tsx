@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, ArrowLeft } from 'lucide-react';
+import { Plus, Pencil, Trash2, ArrowLeft, FileSpreadsheet, FileDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { exportToExcel, exportToPdf } from '@/utils/exportUtils';
 import { PageHeader } from '@/components/common/PageHeader';
 import { DataTable, ColumnDef } from '@/components/common/DataTable';
 import { Pagination } from '@/components/common/Pagination';
@@ -37,6 +38,47 @@ export default function BrandsPage() {
   const pendingImageFile = useRef<File | null>(null);
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const fetchAllForExport = async () => {
+    setIsExporting(true);
+    try {
+      const res = await brandService.list({ page: 1, pageSize: 10000, search });
+      return res.data as Record<string, unknown>[];
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const exportColumns = [
+    { header: 'Brand Name', accessor: 'name', width: 25 },
+  ];
+
+  const handleExportExcel = async () => {
+    try {
+      const rows = await fetchAllForExport();
+      exportToExcel(rows, exportColumns, `Brands_Export_${new Date().toISOString().slice(0, 10)}`);
+      toast.success('Excel downloaded');
+    } catch {
+      toast.error('Failed to export Excel');
+    }
+  };
+
+  const handleExportPdf = async () => {
+    try {
+      const rows = await fetchAllForExport();
+      exportToPdf(rows, exportColumns, {
+        title: 'Product Brands List',
+        subtitle: `Total Brands: ${rows.length}`,
+        filename: `Brands_Export_${new Date().toISOString().slice(0, 10)}`,
+        orientation: 'portrait',
+      });
+      toast.success('PDF downloaded');
+    } catch {
+      toast.error('Failed to export PDF');
+    }
+  };
+
 
   const { data, isLoading } = useQuery({
     queryKey: ['brands', page, pageSize, search],
@@ -183,11 +225,35 @@ export default function BrandsPage() {
         title="Brands"
         description="Manage product brands"
         actions={
-          <Button onClick={openCreate} size="sm" className="gap-1.5 h-8 text-xs sm:h-9 sm:text-sm sm:gap-2">
-            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Add Brand</span>
-            <span className="sm:hidden">Add</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportExcel}
+              disabled={isExporting}
+              className="gap-1.5 h-8 text-xs sm:h-9 sm:text-sm"
+              title="Export to Excel"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Excel</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportPdf}
+              disabled={isExporting}
+              className="gap-1.5 h-8 text-xs sm:h-9 sm:text-sm"
+              title="Export to PDF"
+            >
+              <FileDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">PDF</span>
+            </Button>
+            <Button onClick={openCreate} size="sm" className="gap-1.5 h-8 text-xs sm:h-9 sm:text-sm sm:gap-2">
+              <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Add Brand</span>
+              <span className="sm:hidden">Add</span>
+            </Button>
+          </div>
         }
       />
       <div className="mb-4">

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, ArrowLeft } from 'lucide-react';
+import { Plus, Pencil, Trash2, ArrowLeft, FileSpreadsheet, FileDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import { exportToExcel, exportToPdf } from '@/utils/exportUtils';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -36,6 +37,52 @@ export default function StoresPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<Store | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const fetchAllForExport = async () => {
+    setIsExporting(true);
+    try {
+      const res = await storeService.list({ page: 1, pageSize: 10000, search: search || undefined });
+      return res.data as Record<string, unknown>[];
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const exportColumns = [
+    { header: 'Store Name', accessor: 'name', width: 25 },
+    { header: 'Address', accessor: 'address', width: 30 },
+    { header: 'City', accessor: 'city', width: 18 },
+    { header: 'Pincode', accessor: 'pincode', width: 12 },
+    { header: 'Mobile', accessor: 'mobile', width: 16 },
+    { header: 'Email', accessor: 'email', width: 25 },
+  ];
+
+  const handleExportExcel = async () => {
+    try {
+      const rows = await fetchAllForExport();
+      exportToExcel(rows, exportColumns, `Stores_Export_${new Date().toISOString().slice(0, 10)}`);
+      toast.success('Excel downloaded');
+    } catch {
+      toast.error('Failed to export Excel');
+    }
+  };
+
+  const handleExportPdf = async () => {
+    try {
+      const rows = await fetchAllForExport();
+      exportToPdf(rows, exportColumns, {
+        title: 'Stores Location List',
+        subtitle: `Total Stores: ${rows.length}`,
+        filename: `Stores_Export_${new Date().toISOString().slice(0, 10)}`,
+        orientation: 'landscape',
+      });
+      toast.success('PDF downloaded');
+    } catch {
+      toast.error('Failed to export PDF');
+    }
+  };
+
 
   const { data, isLoading } = useQuery({ queryKey: ['stores', page, pageSize, search], queryFn: () => storeService.list({ page, pageSize, search: search || undefined }) });
   const { register, handleSubmit, reset: resetForm, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
@@ -82,11 +129,35 @@ export default function StoresPage() {
       <PageHeader 
         title="Stores" 
         actions={
-          <Button onClick={openCreate} size="sm" className="gap-1.5 h-8 text-xs sm:h-9 sm:text-sm sm:gap-2">
-            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Add Store</span>
-            <span className="sm:hidden">Add</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportExcel}
+              disabled={isExporting}
+              className="gap-1.5 h-8 text-xs sm:h-9 sm:text-sm"
+              title="Export to Excel"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Excel</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportPdf}
+              disabled={isExporting}
+              className="gap-1.5 h-8 text-xs sm:h-9 sm:text-sm"
+              title="Export to PDF"
+            >
+              <FileDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">PDF</span>
+            </Button>
+            <Button onClick={openCreate} size="sm" className="gap-1.5 h-8 text-xs sm:h-9 sm:text-sm sm:gap-2">
+              <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Add Store</span>
+              <span className="sm:hidden">Add</span>
+            </Button>
+          </div>
         } 
       />
       

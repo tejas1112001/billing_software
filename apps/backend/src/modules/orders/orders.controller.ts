@@ -15,10 +15,16 @@ const OrderItemsSchema = z.array(
 const CreateOrderSchema = z.object({
   storeId: z.string().min(1, 'Store is required'),
   items: OrderItemsSchema,
+  priceType: z.enum(['CASH', 'CREDIT']).optional(),
 });
 
 const UpdateOrderSchema = z.object({
   items: OrderItemsSchema,
+});
+
+const ApplyDiscountSchema = z.object({
+  discountType: z.enum(['PERCENTAGE', 'FIXED']),
+  discountValue: z.number().positive(),
 });
 
 export async function listOrders(req: Request, res: Response, next: NextFunction) {
@@ -32,7 +38,7 @@ export async function listOrders(req: Request, res: Response, next: NextFunction
 export async function createOrder(req: Request, res: Response, next: NextFunction) {
   try {
     const body = CreateOrderSchema.parse(req.body);
-    const order = await ordersService.createOrder(req.user!.id, body.storeId, body.items);
+    const order = await ordersService.createOrder(req.user!.id, body.storeId, body.items, body.priceType);
     res.status(201).json(order);
   } catch (e) { next(e); }
 }
@@ -82,4 +88,21 @@ export async function downloadOrderPdf(req: Request, res: Response, next: NextFu
   } catch (e) {
     next(e);
   }
+}
+
+export async function applyDiscount(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (req.user!.role !== 'ADMIN') {
+      throw new AppError(403, 'Only Admin can apply discounts');
+    }
+    const body = ApplyDiscountSchema.parse(req.body);
+    const order = await ordersService.applyDiscount(
+      req.params.id,
+      req.user!.id,
+      req.user!.role,
+      body.discountType,
+      body.discountValue
+    );
+    res.json(order);
+  } catch (e) { next(e); }
 }

@@ -34,7 +34,7 @@ export async function update(id: string, data: { name?: string; imageUrl?: strin
 
 export async function remove(id: string) {
   const [categoryCount, productCount] = await Promise.all([
-    prisma.category.count({ where: { brandId: id } }),
+    prisma.categoryBrand.count({ where: { brandId: id } }),
     prisma.product.count({ where: { brandId: id } }),
   ]);
 

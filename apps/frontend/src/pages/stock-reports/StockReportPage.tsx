@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Filter, ImageOff, Edit2, Save, X, BarChart3,
-  Package, Tag, Layers,
+  Package, Tag, Layers, FileSpreadsheet, FileDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DataTable, ColumnDef } from '@/components/common/DataTable';
@@ -21,6 +21,7 @@ import { productService } from '@/services/productService';
 import { usePagination } from '@/hooks/usePagination';
 import { useAuthStore } from '@/stores/authStore';
 import { formatCurrency } from '@/utils/formatCurrency';
+import { getProductDisplayName } from '@/utils/productName';
 import type { Product, Brand, Category } from '@/types';
 
 const GROUP_BY_OPTIONS = [
@@ -74,7 +75,7 @@ function ProductCard({
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <p className="font-semibold text-sm leading-tight line-clamp-2">{product.modelName}</p>
+            <p className="font-semibold text-sm leading-tight line-clamp-2">{getProductDisplayName(product)}</p>
             <Badge variant={stockLow ? 'warning' : 'success'} className="shrink-0 text-xs">
               {product.availableQty}
             </Badge>
@@ -179,8 +180,8 @@ export default function StockReportPage() {
 
   const { data: categories } = useQuery<Category[]>({
     queryKey: ['categories-by-brand', brandId],
-    queryFn: () => categoryService.getByBrand(brandId),
-    enabled: !!brandId,
+    queryFn: () => brandId ? categoryService.getByBrand(brandId) : categoryService.getAll(),
+    enabled: true,
   });
 
   const { data, isLoading } = useQuery({
@@ -229,6 +230,41 @@ export default function StockReportPage() {
   const activeFiltersCount = (brandId ? 1 : 0) + (categoryId ? 1 : 0) + (groupBy !== 'brand' ? 1 : 0);
   const products: Product[] = (data?.data ?? []) as Product[];
 
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportExcel = async () => {
+    setIsExporting(true);
+    try {
+      await stockReportService.exportExcel({
+        groupBy,
+        brandId: brandId || undefined,
+        categoryId: categoryId || undefined,
+      });
+      toast.success('Excel downloaded');
+    } catch {
+      toast.error('Failed to export Excel');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    setIsExporting(true);
+    try {
+      await stockReportService.exportPdf({
+        groupBy,
+        brandId: brandId || undefined,
+        categoryId: categoryId || undefined,
+      });
+      toast.success('PDF downloaded');
+    } catch {
+      toast.error('Failed to export PDF');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+
   // ── Desktop table columns ──────────────────────────────────────────────────
   const columns: ColumnDef<Product>[] = [
     {
@@ -256,8 +292,8 @@ export default function StockReportPage() {
     },
     {
       key: 'modelName',
-      header: 'Model Name',
-      cell: (r) => <div className="font-semibold text-sm">{r.modelName}</div>,
+      header: 'Product Name',
+      cell: (r) => <div className="font-semibold text-sm">{getProductDisplayName(r)}</div>,
     },
     {
       key: 'brand',
@@ -374,7 +410,6 @@ export default function StockReportPage() {
         <Select
           value={categoryId || '_all'}
           onValueChange={(v) => { setCategoryId(v === '_all' ? '' : v); reset(); }}
-          disabled={!brandId}
         >
           <SelectTrigger className="w-full h-9"><SelectValue placeholder="All Categories" /></SelectTrigger>
           <SelectContent>
@@ -391,17 +426,41 @@ export default function StockReportPage() {
       {/* ── Page Header ─────────────────────────────────────────────────────── */}
       <div className="relative overflow-hidden rounded-2xl px-5 py-4 sm:px-6 sm:py-5 border bg-card shadow-sm">
         <div className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full bg-primary/5" />
-        <div className="relative z-10 flex items-center justify-between gap-3">
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest mb-0.5">Inventory</p>
             <h1 className="text-lg sm:text-xl font-extrabold tracking-tight">Stock Report</h1>
             <p className="text-xs text-muted-foreground mt-0.5">View and manage product inventory</p>
           </div>
-          <div className="hidden sm:flex items-center gap-1.5 rounded-xl bg-muted px-3 py-2 shrink-0">
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            <span className="text-xs font-medium">
-              {data?.total ?? 0} products
-            </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportExcel}
+              disabled={isExporting}
+              className="gap-1.5 h-8 text-xs sm:h-9 sm:text-sm"
+              title="Export to Excel"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Excel</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportPdf}
+              disabled={isExporting}
+              className="gap-1.5 h-8 text-xs sm:h-9 sm:text-sm"
+              title="Export to PDF"
+            >
+              <FileDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">PDF</span>
+            </Button>
+            <div className="hidden sm:flex items-center gap-1.5 rounded-xl bg-muted px-3 py-2 shrink-0">
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs font-medium">
+                {data?.total ?? 0} products
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -433,7 +492,7 @@ export default function StockReportPage() {
             </div>
             <div className="flex-1 min-w-[160px]">
               <Label className="text-xs font-semibold mb-1.5 block text-muted-foreground uppercase tracking-wide">Category</Label>
-              <Select value={categoryId || '_all'} onValueChange={(v) => { setCategoryId(v === '_all' ? '' : v); reset(); }} disabled={!brandId}>
+              <Select value={categoryId || '_all'} onValueChange={(v) => { setCategoryId(v === '_all' ? '' : v); reset(); }}>
                 <SelectTrigger className="h-9"><SelectValue placeholder="All Categories" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_all">All Categories</SelectItem>

@@ -2,6 +2,7 @@ export type Role = 'ADMIN' | 'OPERATOR';
 export type OperatorType = 'CASH' | 'CREDIT';
 export type VoucherType = 'ORDER' | 'RECEIPT';
 export type PaymentMode = 'CASH' | 'UPI';
+export type DiscountType = 'PERCENTAGE' | 'FIXED';
 export type LogAction =
   | 'LOGIN'
   | 'LOGOUT'
@@ -46,6 +47,7 @@ export interface Category {
   imageUrl?: string | null;
   brandId: string;
   brand?: Brand;
+  brands?: Brand[];
 }
 
 export interface ProductImage {
@@ -90,6 +92,10 @@ export interface Order {
   userId?: string;
   user?: { id: string; username: string; operatorType?: OperatorType | null };
   totalAmount: number | string;
+  discountType?: DiscountType | null;
+  discountValue?: number | string | null;
+  discountAppliedBy?: string | null;
+  discountAdmin?: { id: string; username: string } | null;
   createdAt: string;
   orderItems?: OrderItem[];
   itemCount?: number;

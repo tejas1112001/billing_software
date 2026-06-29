@@ -64,17 +64,56 @@ export async function getOperatorStats(req: Request, res: Response, next: NextFu
     const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
     const operatorTypeFilter = req.query.operatorType as OperatorType | undefined;
 
-    const userWhere: Record<string, unknown> = { role: 'OPERATOR', isActive: true };
-    if (operatorTypeFilter) userWhere.operatorType = operatorTypeFilter;
+    const userWhere: Record<string, unknown> = { isActive: true };
+    if (operatorTypeFilter) {
+      userWhere.operatorType = operatorTypeFilter;
+      userWhere.role = 'OPERATOR';
+    }
 
-    const operators = await prisma.user.findMany({
+    const users = await prisma.user.findMany({
       where: userWhere,
-      select: { id: true, username: true, operatorType: true },
+      select: { id: true, username: true, operatorType: true, role: true },
       orderBy: { username: 'asc' },
     });
 
+    // Fetch all orders today with first item pricing for classification
+    const ordersTodayList = await prisma.order.findMany({
+      where: { createdAt: { gte: startOfDay, lte: endOfDay } },
+      include: {
+        user: { select: { role: true, operatorType: true } },
+        orderItems: {
+          take: 1,
+          include: { product: { select: { cashPrice: true, creditPrice: true } } }
+        }
+      }
+    });
+
+    let totalCashSalesToday = 0;
+    let totalCreditSalesToday = 0;
+
+    for (const order of ordersTodayList) {
+      let type: OperatorType = 'CASH';
+      if (order.user.role === 'OPERATOR' && order.user.operatorType) {
+        type = order.user.operatorType;
+      } else if (order.orderItems.length > 0) {
+        const item = order.orderItems[0];
+        if (Number(item.unitPrice) === Number(item.product.cashPrice)) {
+          type = 'CASH';
+        } else if (Number(item.unitPrice) === Number(item.product.creditPrice)) {
+          type = 'CREDIT';
+        }
+      }
+      
+      const sales = Number(order.totalAmount);
+      if (type === 'CASH') {
+        totalCashSalesToday += sales;
+      } else {
+        totalCreditSalesToday += sales;
+      }
+    }
+
     const stats = await Promise.all(
-      operators.map(async (op) => {
+      users.map(async (op) => {
         const [ordersToday, receiptsToday, totalOrdersAmount, totalReceiptsAmount,
                recentLogs] = await Promise.all([
           prisma.order.count({ where: { userId: op.id, createdAt: { gte: startOfDay, lte: endOfDay } } }),
@@ -99,6 +138,7 @@ export async function getOperatorStats(req: Request, res: Response, next: NextFu
           id: op.id,
           username: op.username,
           operatorType: op.operatorType,
+          role: op.role,
           ordersToday,
           receiptsToday,
           salesToday: Number(totalOrdersAmount._sum.totalAmount ?? 0),
@@ -108,15 +148,7 @@ export async function getOperatorStats(req: Request, res: Response, next: NextFu
       })
     );
 
-    // Sales distribution for pie chart
-    const cashSales = stats
-      .filter(s => s.operatorType === 'CASH')
-      .reduce((sum, s) => sum + s.salesToday, 0);
-    const creditSales = stats
-      .filter(s => s.operatorType === 'CREDIT')
-      .reduce((sum, s) => sum + s.salesToday, 0);
-
-    res.json({ operators: stats, distribution: { cashSales, creditSales } });
+    res.json({ operators: stats, distribution: { cashSales: totalCashSalesToday, creditSales: totalCreditSalesToday } });
   } catch (e) { next(e); }
 }
 
@@ -353,56 +385,58 @@ export async function getCashCreditReport(req: Request, res: Response, next: Nex
       return res.status(400).json({ message: 'Invalid date filter' });
     }
 
-    // Get cash operators
-    const cashOperators = await prisma.user.findMany({
-      where: { role: 'OPERATOR', operatorType: 'CASH', isActive: true },
-      select: { id: true },
-    });
-    const cashOperatorIds = cashOperators.map(op => op.id);
-
-    // Get credit operators
-    const creditOperators = await prisma.user.findMany({
-      where: { role: 'OPERATOR', operatorType: 'CREDIT', isActive: true },
-      select: { id: true },
-    });
-    const creditOperatorIds = creditOperators.map(op => op.id);
-
     const dateFilter = { createdAt: { gte: start, lte: end } };
 
-    // Cash sales
-    const [cashSalesResult, cashOrdersCount] = await Promise.all([
-      prisma.order.aggregate({
-        _sum: { totalAmount: true },
-        where: { userId: { in: cashOperatorIds }, ...dateFilter },
-      }),
-      prisma.order.count({
-        where: { userId: { in: cashOperatorIds }, ...dateFilter },
-      }),
-    ]);
+    const orders = await prisma.order.findMany({
+      where: dateFilter,
+      include: {
+        user: { select: { role: true, operatorType: true } },
+        orderItems: {
+          take: 1,
+          include: { product: { select: { cashPrice: true, creditPrice: true } } }
+        }
+      }
+    });
 
-    // Credit sales
-    const [creditSalesResult, creditOrdersCount] = await Promise.all([
-      prisma.order.aggregate({
-        _sum: { totalAmount: true },
-        where: { userId: { in: creditOperatorIds }, ...dateFilter },
-      }),
-      prisma.order.count({
-        where: { userId: { in: creditOperatorIds }, ...dateFilter },
-      }),
-    ]);
+    let cashSales = 0;
+    let cashOrdersCount = 0;
+    let creditSales = 0;
+    let creditOrdersCount = 0;
 
-    // Total sales
-    const [totalSalesResult, totalOrdersCount] = await Promise.all([
-      prisma.order.aggregate({
-        _sum: { totalAmount: true },
-        where: dateFilter,
-      }),
-      prisma.order.count({ where: dateFilter }),
-    ]);
+    for (const order of orders) {
+      let isCash = false;
+      if (order.user.role === 'OPERATOR') {
+        isCash = order.user.operatorType === 'CASH';
+      } else {
+        if (order.orderItems.length > 0) {
+          const item = order.orderItems[0];
+          const unitPrice = Number(item.unitPrice);
+          const cashPrice = Number(item.product.cashPrice);
+          const creditPrice = Number(item.product.creditPrice);
+          if (unitPrice === cashPrice) {
+            isCash = true;
+          } else if (unitPrice === creditPrice) {
+            isCash = false;
+          } else {
+            isCash = true;
+          }
+        } else {
+          isCash = true;
+        }
+      }
 
-    const cashSales = Number(cashSalesResult._sum.totalAmount ?? 0);
-    const creditSales = Number(creditSalesResult._sum.totalAmount ?? 0);
-    const totalSales = Number(totalSalesResult._sum.totalAmount ?? 0);
+      const amt = Number(order.totalAmount);
+      if (isCash) {
+        cashSales += amt;
+        cashOrdersCount++;
+      } else {
+        creditSales += amt;
+        creditOrdersCount++;
+      }
+    }
+
+    const totalSales = cashSales + creditSales;
+    const totalOrdersCount = cashOrdersCount + creditOrdersCount;
 
     res.json({
       filter,

@@ -17,6 +17,9 @@ const listSelect = {
   id: true,
   billNumber: true,
   totalAmount: true,
+  discountType: true,
+  discountValue: true,
+  discountAppliedBy: true,
   createdAt: true,
   storeId: true,
   userId: true,
@@ -29,12 +32,18 @@ async function resolveOrderItems(
   tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
   userId: string,
   items: OrderItemInput[],
-  adjustStock: 'decrement' | 'none'
+  adjustStock: 'decrement' | 'none',
+  priceTypeOverride?: 'CASH' | 'CREDIT'
 ) {
   const user = await tx.user.findUnique({
     where: { id: userId },
-    select: { operatorType: true },
+    select: { operatorType: true, role: true },
   });
+
+  const effectiveOperatorType = (user?.role === 'ADMIN' && priceTypeOverride)
+    ? priceTypeOverride
+    : user?.operatorType;
+
 
   let totalAmount = 0;
   const orderItemsData: Array<{
@@ -80,7 +89,7 @@ async function resolveOrderItems(
     }
 
     const unitPrice =
-      user?.operatorType === 'CASH'
+      effectiveOperatorType === 'CASH'
         ? Number(product.cashPrice)
         : Number(product.creditPrice);
     const lineTotal = unitPrice * item.quantity;
@@ -96,7 +105,7 @@ async function resolveOrderItems(
   return { totalAmount, orderItemsData };
 }
 
-export async function createOrder(userId: string, storeId: string, items: OrderItemInput[]) {
+export async function createOrder(userId: string, storeId: string, items: OrderItemInput[], priceTypeOverride?: 'CASH' | 'CREDIT') {
   const now = new Date();
 
   const order = await prisma.$transaction(async (tx) => {
@@ -108,7 +117,7 @@ export async function createOrder(userId: string, storeId: string, items: OrderI
     });
     if (!store) throw new AppError(404, 'Store not found');
 
-    const { totalAmount, orderItemsData } = await resolveOrderItems(tx, userId, items, 'decrement');
+    const { totalAmount, orderItemsData } = await resolveOrderItems(tx, userId, items, 'decrement', priceTypeOverride);
 
     const newOrder = await tx.order.create({
       data: {
@@ -279,7 +288,18 @@ export async function getById(id: string, scope: AccessScope) {
     include: {
       store: true,
       user: { select: { id: true, username: true, operatorType: true } },
-      orderItems: { include: { product: { include: { images: { orderBy: { sortOrder: 'asc' } } } } } },
+      discountAdmin: { select: { id: true, username: true } },
+      orderItems: {
+        include: {
+          product: {
+            include: {
+              images: { orderBy: { sortOrder: 'asc' } },
+              brand: { select: { name: true } },
+              category: { select: { name: true } },
+            },
+          },
+        },
+      },
     },
   });
 }
@@ -288,4 +308,93 @@ export async function getByIdForPdf(id: string, scope: AccessScope) {
   const order = await getById(id, scope);
   if (!order) throw new AppError(404, 'Order not found');
   return order;
+}
+
+export async function applyDiscount(
+  id: string,
+  adminUserId: string,
+  adminRole: Role,
+  discountType: 'PERCENTAGE' | 'FIXED',
+  discountValue: number
+) {
+  if (adminRole !== 'ADMIN') {
+    throw new AppError(403, 'Only Admin can apply discounts');
+  }
+
+  const existing = await prisma.order.findUnique({
+    where: { id },
+    include: { orderItems: true, ledgerEntry: true },
+  });
+  if (!existing) throw new AppError(404, 'Order not found');
+
+  // Always compute discount off the original items subtotal
+  const itemsSubtotal = existing.orderItems.reduce(
+    (sum, item) => sum + Number(item.lineTotal),
+    0
+  );
+
+  // Validate discount bounds
+  if (discountType === 'PERCENTAGE') {
+    if (discountValue < 0 || discountValue > 100) {
+      throw new AppError(400, 'Percentage discount must be between 0 and 100');
+    }
+  } else {
+    if (discountValue < 0 || discountValue > itemsSubtotal) {
+      throw new AppError(400, 'Fixed discount cannot exceed the bill subtotal');
+    }
+  }
+
+  const discountAmount =
+    discountType === 'PERCENTAGE'
+      ? (itemsSubtotal * discountValue) / 100
+      : discountValue;
+
+  const newTotal = Math.max(0, itemsSubtotal - discountAmount);
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const updatedOrder = await tx.order.update({
+      where: { id },
+      data: {
+        totalAmount: newTotal,
+        discountType,
+        discountValue,
+        discountAppliedBy: adminUserId,
+      },
+      include: {
+        store: true,
+        user: { select: { id: true, username: true, operatorType: true } },
+        discountAdmin: { select: { id: true, username: true } },
+        orderItems: {
+          include: {
+            product: {
+              include: {
+                images: { orderBy: { sortOrder: 'asc' } },
+                brand: { select: { name: true } },
+                category: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Sync ledger entry to the new discounted total
+    if (existing.ledgerEntry) {
+      await tx.ledgerEntry.update({
+        where: { id: existing.ledgerEntry.id },
+        data: { amount: newTotal },
+      });
+    }
+
+    return updatedOrder;
+  });
+
+  await createLog(adminUserId, 'BILL_CREATION', {
+    billNumber: updated.billNumber,
+    action: 'discount_applied',
+    discountType,
+    discountValue,
+  });
+
+  return updated;
 }

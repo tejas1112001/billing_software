@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, ArrowLeft } from 'lucide-react';
+import { Plus, Pencil, Trash2, ArrowLeft, FileSpreadsheet, FileDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PageHeader } from '@/components/common/PageHeader';
 import { DataTable, ColumnDef } from '@/components/common/DataTable';
+import { exportToExcel, exportToPdf } from '@/utils/exportUtils';
 import { Pagination } from '@/components/common/Pagination';
 import { SearchInput } from '@/components/common/SearchInput';
 import { MultiImageUpload, type PendingImage } from '@/components/common/MultiImageUpload';
@@ -24,18 +25,19 @@ import { brandService } from '@/services/brandService';
 import { categoryService } from '@/services/categoryService';
 import { uploadImage, getUploadErrorMessage } from '@/services/uploadService';
 import { usePagination } from '@/hooks/usePagination';
-import { formatCurrency } from '@/utils/formatCurrency';
+import { formatCurrency, formatCurrencyForPdf } from '@/utils/formatCurrency';
+import { getProductDisplayName } from '@/utils/productName';
 import type { Product, Brand, Category } from '@/types';
 
 const schema = z.object({
   modelName: z.string().min(1, 'Required'),
-  brandId: z.string().optional(),
-  categoryId: z.string().optional(),
-  mrp: z.coerce.number().optional(),
-  cashPrice: z.coerce.number().optional(),
-  creditPrice: z.coerce.number().optional(),
-  purchasePrice: z.coerce.number().optional(),
-  availableQty: z.coerce.number().int().optional(),
+  brandId: z.string().optional().nullable(),
+  categoryId: z.string().optional().nullable(),
+  mrp: z.preprocess(v => v === '' ? 0 : v, z.coerce.number().optional().default(0)),
+  cashPrice: z.preprocess(v => v === '' ? 0 : v, z.coerce.number().optional().default(0)),
+  creditPrice: z.preprocess(v => v === '' ? 0 : v, z.coerce.number().optional().default(0)),
+  purchasePrice: z.preprocess(v => v === '' ? null : v, z.coerce.number().nullable().optional()),
+  availableQty: z.preprocess(v => v === '' ? 0 : v, z.coerce.number().int().optional().default(0)),
   isNewArrival: z.boolean().optional(),
 });
 type FormData = z.infer<typeof schema>;
@@ -51,6 +53,63 @@ export default function ProductsPage() {
   const [productImages, setProductImages] = useState<PendingImage[]>([]);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const fetchAllForExport = async () => {
+    setIsExporting(true);
+    try {
+      const res = await productService.list({ page: 1, pageSize: 10000, search });
+      return res.data as Record<string, unknown>[];
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const exportColumns = [
+    { header: 'Product Name', accessor: (r: Record<string, unknown>) => getProductDisplayName(r as unknown as Product), width: 30 },
+    { header: 'Brand', accessor: (r: Record<string, unknown>) => (r.brand as { name?: string })?.name ?? '—', width: 18 },
+    { header: 'Category', accessor: (r: Record<string, unknown>) => (r.category as { name?: string })?.name ?? '—', width: 18 },
+    { header: 'MRP', accessor: (r: Record<string, unknown>) => formatCurrency(r.mrp as number), width: 14 },
+    { header: 'Gold Price', accessor: (r: Record<string, unknown>) => formatCurrency(r.cashPrice as number), width: 14 },
+    { header: 'Platinum Price', accessor: (r: Record<string, unknown>) => formatCurrency(r.creditPrice as number), width: 14 },
+    { header: 'Qty Available', accessor: 'availableQty', width: 12 },
+  ];
+
+  const pdfExportColumns = [
+    { header: 'Product Name', accessor: (r: Record<string, unknown>) => getProductDisplayName(r as unknown as Product), width: 30 },
+    { header: 'Brand', accessor: (r: Record<string, unknown>) => (r.brand as { name?: string })?.name ?? '—', width: 18 },
+    { header: 'Category', accessor: (r: Record<string, unknown>) => (r.category as { name?: string })?.name ?? '—', width: 18 },
+    { header: 'MRP', accessor: (r: Record<string, unknown>) => formatCurrencyForPdf(r.mrp as number), width: 14 },
+    { header: 'Gold Price', accessor: (r: Record<string, unknown>) => formatCurrencyForPdf(r.cashPrice as number), width: 14 },
+    { header: 'Platinum Price', accessor: (r: Record<string, unknown>) => formatCurrencyForPdf(r.creditPrice as number), width: 14 },
+    { header: 'Qty Available', accessor: 'availableQty', width: 12 },
+  ];
+
+  const handleExportExcel = async () => {
+    try {
+      const rows = await fetchAllForExport();
+      exportToExcel(rows, exportColumns, `Products_Export_${new Date().toISOString().slice(0, 10)}`);
+      toast.success('Excel downloaded');
+    } catch {
+      toast.error('Failed to export Excel');
+    }
+  };
+
+  const handleExportPdf = async () => {
+    try {
+      const rows = await fetchAllForExport();
+      exportToPdf(rows, pdfExportColumns, {
+        title: 'Products Inventory List',
+        subtitle: `Total Products: ${rows.length}`,
+        filename: `Products_Export_${new Date().toISOString().slice(0, 10)}`,
+        orientation: 'landscape',
+      });
+      toast.success('PDF downloaded');
+    } catch {
+      toast.error('Failed to export PDF');
+    }
+  };
+
 
   const { data, isLoading } = useQuery({
     queryKey: ['products', page, pageSize, search],
@@ -72,8 +131,8 @@ export default function ProductsPage() {
   const selectedBrandId = watch('brandId');
   const { data: categories } = useQuery<Category[]>({
     queryKey: ['categories-by-brand', selectedBrandId],
-    queryFn: () => categoryService.getByBrand(selectedBrandId),
-    enabled: !!selectedBrandId,
+    queryFn: () => selectedBrandId ? categoryService.getByBrand(selectedBrandId) : categoryService.getAll(),
+    enabled: true,
   });
 
   const createMut = useMutation({
@@ -222,10 +281,10 @@ export default function ProductsPage() {
     },
     { 
       key: 'modelName', 
-      header: 'Model',
+      header: 'Product Name',
       cell: (r) => (
         <div className="flex items-center gap-2">
-          <span>{r.modelName}</span>
+          <span>{getProductDisplayName(r)}</span>
           {r.isNewArrival && (
             <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4 bg-gradient-to-r from-pink-500 to-purple-500">
               NEW
@@ -279,11 +338,35 @@ export default function ProductsPage() {
       <PageHeader
         title="Products"
         actions={
-          <Button onClick={openCreate} size="sm" className="gap-1.5 h-8 text-xs sm:h-9 sm:text-sm sm:gap-2">
-            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Add Product</span>
-            <span className="sm:hidden">Add</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportExcel}
+              disabled={isExporting}
+              className="gap-1.5 h-8 text-xs sm:h-9 sm:text-sm"
+              title="Export to Excel"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Excel</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportPdf}
+              disabled={isExporting}
+              className="gap-1.5 h-8 text-xs sm:h-9 sm:text-sm"
+              title="Export to PDF"
+            >
+              <FileDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">PDF</span>
+            </Button>
+            <Button onClick={openCreate} size="sm" className="gap-1.5 h-8 text-xs sm:h-9 sm:text-sm sm:gap-2">
+              <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Add Product</span>
+              <span className="sm:hidden">Add</span>
+            </Button>
+          </div>
         }
       />
       
@@ -331,11 +414,11 @@ export default function ProductsPage() {
               )}
             </div>
             <div>
-              <Label className="text-xs sm:text-sm">Brand</Label>
+              <Label className="text-xs sm:text-sm">Brand (Optional)</Label>
               <Select
-                value={watch('brandId')}
+                value={watch('brandId') || '_none'}
                 onValueChange={(v) => {
-                  setValue('brandId', v);
+                  setValue('brandId', v === '_none' ? '' : v);
                   setValue('categoryId', '');
                 }}
               >
@@ -343,6 +426,7 @@ export default function ProductsPage() {
                   <SelectValue placeholder="Select brand" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="_none">None (No Brand)</SelectItem>
                   {brands?.map((b) => (
                     <SelectItem key={b.id} value={b.id}>
                       {b.name}
@@ -352,16 +436,16 @@ export default function ProductsPage() {
               </Select>
             </div>
             <div>
-              <Label className="text-xs sm:text-sm">Category</Label>
+              <Label className="text-xs sm:text-sm">Category (Optional)</Label>
               <Select
-                value={watch('categoryId')}
-                onValueChange={(v) => setValue('categoryId', v)}
-                disabled={!selectedBrandId}
+                value={watch('categoryId') || '_none'}
+                onValueChange={(v) => setValue('categoryId', v === '_none' ? '' : v)}
               >
                 <SelectTrigger className="h-8 sm:h-9 mt-1">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="_none">None (No Category)</SelectItem>
                   {categories?.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}

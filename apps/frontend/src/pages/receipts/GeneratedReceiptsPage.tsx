@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Eye, Pencil, Trash2, ArrowUpDown, Receipt as ReceiptIcon, Download } from 'lucide-react';
+import {
+  Eye, Pencil, Trash2, ArrowUpDown, Receipt as ReceiptIcon, Download,
+  FileSpreadsheet, FileDown,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/common/PageHeader';
 import { DataTable, ColumnDef } from '@/components/common/DataTable';
@@ -9,6 +12,8 @@ import { SearchInput } from '@/components/common/SearchInput';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
@@ -16,17 +21,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { receiptService } from '@/services/receiptService';
 import { paymentMethodService } from '@/services/paymentMethodService';
 import { userService } from '@/services/userService';
+import { storeService } from '@/services/storeService';
 import { usePagination } from '@/hooks/usePagination';
 import { useAuthStore } from '@/stores/authStore';
-import { formatCurrency } from '@/utils/formatCurrency';
+import { formatCurrency, formatCurrencyForPdf } from '@/utils/formatCurrency';
 import { formatDate, formatDateTime } from '@/utils/formatDate';
 import { getOperatorTypeDisplay } from '@/utils/operatorTypeDisplay';
-import type { Receipt, PaginatedResponse, AppUser, PaymentMethod } from '@/types';
+import { exportToExcel, exportToPdf, ExportColumn } from '@/utils/exportUtils';
+import type { Receipt, PaginatedResponse, AppUser, PaymentMethod, Store } from '@/types';
 
 export default function GeneratedReceiptsPage() {
   const qc = useQueryClient();
@@ -36,10 +41,13 @@ export default function GeneratedReceiptsPage() {
   const [search, setSearch] = useState('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterUserId, setFilterUserId] = useState('');
+  const [filterStoreId, setFilterStoreId] = useState('');
+  const [filterPaymentMethodId, setFilterPaymentMethodId] = useState('');
   const [viewId, setViewId] = useState<string | null>(null);
   const [editReceipt, setEditReceipt] = useState<Receipt | null>(null);
   const [editForm, setEditForm] = useState({ paymentMethodId: '', amount: '', date: '' });
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const { data: usersData } = useQuery({
     queryKey: ['users-for-filter'],
@@ -47,8 +55,14 @@ export default function GeneratedReceiptsPage() {
     enabled: isAdmin,
   });
 
+  const { data: storesData } = useQuery<Store[]>({
+    queryKey: ['stores-all'],
+    queryFn: () => storeService.getAll(),
+    enabled: isAdmin,
+  });
+
   const { data, isLoading } = useQuery<PaginatedResponse<Receipt>>({
-    queryKey: ['generated-receipts', page, pageSize, search, sortOrder, filterUserId],
+    queryKey: ['generated-receipts', page, pageSize, search, sortOrder, filterUserId, filterStoreId, filterPaymentMethodId],
     queryFn: () =>
       receiptService.list({
         page,
@@ -56,7 +70,12 @@ export default function GeneratedReceiptsPage() {
         search: search || undefined,
         sortOrder,
         userId: filterUserId && filterUserId !== '_all' ? filterUserId : undefined,
+        storeId: filterStoreId && filterStoreId !== '_all' ? filterStoreId : undefined,
+        paymentMethodId: filterPaymentMethodId && filterPaymentMethodId !== '_all' ? filterPaymentMethodId : undefined,
       }),
+    refetchInterval: 30000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const { data: viewReceipt, isLoading: loadingView } = useQuery<Receipt>({
@@ -116,7 +135,64 @@ export default function GeneratedReceiptsPage() {
     }
   };
 
+  // ── Export helpers ──────────────────────────────────────────────────────────
+
+  const exportColumns: ExportColumn[] = [
+    { header: 'Receipt No.', accessor: 'receiptNumber', width: 16 },
+    { header: 'Date', accessor: (r) => formatDateTime(r.date as string), width: 22 },
+    { header: 'Store', accessor: (r) => (r.store as { name?: string })?.name ?? '—', width: 20 },
+    ...(isAdmin ? [{ header: 'Created By', accessor: (r: Record<string, unknown>) => (r.user as { username?: string })?.username ?? '—', width: 18 } as ExportColumn] : []),
+    { header: 'Payment Method', accessor: (r) => (r.paymentMethod as { name?: string })?.name ?? '—', width: 20 },
+    { header: 'Amount', accessor: (r) => formatCurrencyForPdf(r.amount as number), width: 18 },
+  ];
+
+  const fetchAllForExport = async () => {
+    setIsExporting(true);
+    try {
+      const res = await receiptService.list({
+        page: 1,
+        pageSize: 10000,
+        search: search || undefined,
+        sortOrder,
+        userId: filterUserId && filterUserId !== '_all' ? filterUserId : undefined,
+        storeId: filterStoreId && filterStoreId !== '_all' ? filterStoreId : undefined,
+        paymentMethodId: filterPaymentMethodId && filterPaymentMethodId !== '_all' ? filterPaymentMethodId : undefined,
+      });
+      return res.data as Record<string, unknown>[];
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      const rows = await fetchAllForExport();
+      const dateTag = new Date().toISOString().slice(0, 10);
+      exportToExcel(rows, exportColumns, `Generated_Receipts_${dateTag}`);
+      toast.success('Excel file downloaded');
+    } catch {
+      toast.error('Failed to export Excel');
+    }
+  };
+
+  const handleExportPdf = async () => {
+    try {
+      const rows = await fetchAllForExport();
+      const dateTag = new Date().toLocaleDateString('en-IN');
+      exportToPdf(rows, exportColumns, {
+        title: 'Generated Receipts Report',
+        subtitle: `Total Records: ${rows.length}`,
+        filename: `Generated_Receipts_${new Date().toISOString().slice(0, 10)}`,
+        orientation: 'landscape',
+      });
+      toast.success('PDF downloaded');
+    } catch {
+      toast.error('Failed to export PDF');
+    }
+  };
+
   const users: AppUser[] = usersData?.data ?? [];
+  const stores: Store[] = storesData ?? [];
 
   const columns: ColumnDef<Receipt>[] = [
     {
@@ -146,6 +222,11 @@ export default function GeneratedReceiptsPage() {
         }]
       : []),
     { key: 'store', header: 'Store', cell: (r) => r.store?.name ?? '—' },
+    {
+      key: 'paymentMethod',
+      header: 'Payment',
+      cell: (r) => <span className="text-sm">{(r as Receipt & { paymentMethod?: { name?: string } }).paymentMethod?.name ?? '—'}</span>,
+    },
     {
       key: 'amount',
       header: 'Amount',
@@ -180,6 +261,32 @@ export default function GeneratedReceiptsPage() {
       <PageHeader
         title="Generated Receipts"
         description={isAdmin ? 'All receipts with user filter' : 'Your generated receipts'}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 h-8 text-xs sm:h-9 sm:text-sm"
+              onClick={handleExportExcel}
+              disabled={isExporting}
+              title="Export to Excel"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">{isExporting ? 'Exporting…' : 'Excel'}</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 h-8 text-xs sm:h-9 sm:text-sm"
+              onClick={handleExportPdf}
+              disabled={isExporting}
+              title="Export to PDF"
+            >
+              <FileDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">{isExporting ? 'Exporting…' : 'PDF'}</span>
+            </Button>
+          </div>
+        }
       />
 
       <div className="flex flex-col sm:flex-row gap-2">
@@ -188,6 +295,32 @@ export default function GeneratedReceiptsPage() {
           onChange={(v) => { setSearch(v); reset(); }}
           className="flex-1"
         />
+        {isAdmin && (
+          <Select value={filterStoreId || '_all'} onValueChange={(v) => { setFilterStoreId(v === '_all' ? '' : v); reset(); }}>
+            <SelectTrigger className="w-full sm:w-40">
+              <SelectValue placeholder="All Stores" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">All Stores</SelectItem>
+              {stores.map((s) => (
+                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {isAdmin && (
+          <Select value={filterPaymentMethodId || '_all'} onValueChange={(v) => { setFilterPaymentMethodId(v === '_all' ? '' : v); reset(); }}>
+            <SelectTrigger className="w-full sm:w-44">
+              <SelectValue placeholder="All Payment Methods" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">All Payment Methods</SelectItem>
+              {paymentMethods.filter((m) => m.isActive).map((m) => (
+                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         {isAdmin && (
           <Select value={filterUserId || '_all'} onValueChange={(v) => { setFilterUserId(v === '_all' ? '' : v); reset(); }}>
             <SelectTrigger className="w-full sm:w-48">
@@ -328,7 +461,7 @@ export default function GeneratedReceiptsPage() {
                 step="0.01"
                 min="0"
                 value={editForm.amount}
-                onChange={(e) => setEditForm((f) => ({ ...f, amount: e.target.value }))}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm((f) => ({ ...f, amount: e.target.value }))}
               />
             </div>
             <div className="space-y-2">
@@ -336,7 +469,7 @@ export default function GeneratedReceiptsPage() {
               <Input
                 type="date"
                 value={editForm.date}
-                onChange={(e) => setEditForm((f) => ({ ...f, date: e.target.value }))}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditForm((f) => ({ ...f, date: e.target.value }))}
               />
             </div>
             <div className="flex justify-end gap-2">

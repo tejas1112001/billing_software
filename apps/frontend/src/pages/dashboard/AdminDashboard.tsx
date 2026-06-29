@@ -157,6 +157,8 @@ export default function AdminDashboard() {
     queryKey: ['dashboard-stats'],
     queryFn: dashboardService.getStats,
     refetchInterval: 30000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const { data: lowStockData, isLoading: loadingLowStock, isFetching: fetchingLowStock } = useQuery({
@@ -169,12 +171,16 @@ export default function AdminDashboard() {
     queryKey: ['operator-stats', operatorFilter],
     queryFn: () => dashboardService.getOperatorStats(operatorFilter),
     refetchInterval: 30000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const { data: trendsData, isLoading: loadingTrends } = useQuery({
     queryKey: ['weekly-trends', operatorFilter],
     queryFn: dashboardService.getWeeklyTrends,
     refetchInterval: 60000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const { data: topProductsData, isLoading: loadingProducts } = useQuery({
@@ -187,6 +193,8 @@ export default function AdminDashboard() {
     queryKey: ['recent-activity'],
     queryFn: dashboardService.getRecentActivity,
     refetchInterval: 30000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const pieData = opData
@@ -471,6 +479,10 @@ export default function AdminDashboard() {
                             >
                               {getOperatorTypeDisplay(op.operatorType)}
                             </Badge>
+                          ) : (op as unknown as { role?: string }).role === 'ADMIN' ? (
+                            <Badge variant="outline" className="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-700 border-blue-200">
+                              Admin
+                            </Badge>
                           ) : '—'}
                         </td>
                         <td className="px-3 py-3 text-right tabular-nums">{op.ordersToday}</td>
@@ -487,6 +499,25 @@ export default function AdminDashboard() {
                       </tr>
                     );
                   })}
+                  {opData.operators.length > 0 && (() => {
+                    const totalBills = opData.operators.reduce((sum, op) => sum + op.ordersToday, 0);
+                    const totalReceipts = opData.operators.reduce((sum, op) => sum + op.receiptsToday, 0);
+                    const totalSales = opData.operators.reduce((sum, op) => sum + op.salesToday, 0);
+                    const totalCollected = opData.operators.reduce((sum, op) => sum + op.collectedToday, 0);
+                    const totalPending = totalSales - totalCollected;
+
+                    return (
+                      <tr className="border-t bg-muted/20 font-bold">
+                        <td className="px-4 py-3 text-sm">Total Summary</td>
+                        <td className="px-3 py-3">—</td>
+                        <td className="px-3 py-3 text-right tabular-nums">{totalBills}</td>
+                        <td className="px-3 py-3 text-right tabular-nums">{totalReceipts}</td>
+                        <td className="px-4 py-3 text-right text-primary tabular-nums">{formatCurrency(totalSales)}</td>
+                        <td className="px-4 py-3 text-right text-emerald-600 tabular-nums">{formatCurrency(totalCollected)}</td>
+                        <td className={`px-4 py-3 text-right tabular-nums ${totalPending > 0 ? 'text-red-500' : 'text-muted-foreground'}`}>{formatCurrency(totalPending)}</td>
+                      </tr>
+                    );
+                  })()}
                 </tbody>
               </table>
             </div>

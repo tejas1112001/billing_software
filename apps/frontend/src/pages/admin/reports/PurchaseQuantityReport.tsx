@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Package } from 'lucide-react';
+import { Package, FileSpreadsheet, FileDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { dashboardService } from '@/services/dashboardService';
 import { brandService } from '@/services/brandService';
@@ -15,6 +16,8 @@ import { ReportResponsiveFilters, countReportFilters } from '@/components/report
 import { ReportEntityFilterFields } from '@/components/reports/ReportEntityFilterFields';
 import { ReportKpiCard } from '@/components/reports/ReportKpiCard';
 import { ReportPagination } from '@/components/reports/ReportPagination';
+import { exportToExcel, exportToPdf } from '@/utils/exportUtils';
+import { toast } from 'sonner';
 
 export default function PurchaseQuantityReport() {
   const [startDate, setStartDate] = useState('');
@@ -24,6 +27,7 @@ export default function PurchaseQuantityReport() {
   const [storeId, setStoreId] = useState('');
   const [productId, setProductId] = useState('');
   const [page, setPage] = useState(1);
+  const [isExporting, setIsExporting] = useState(false);
   const limit = 20;
 
   const { data: brands } = useQuery({ queryKey: ['brands'], queryFn: () => brandService.getAll() });
@@ -57,6 +61,8 @@ export default function PurchaseQuantityReport() {
       page,
       limit,
     }),
+    refetchInterval: 60000,
+    staleTime: 0,
   });
 
   const activeCount = countReportFilters(startDate, endDate, brandId, categoryId, storeId, productId);
@@ -78,11 +84,74 @@ export default function PurchaseQuantityReport() {
     setPage(1);
   };
 
+  const fetchAllForExport = async () => {
+    setIsExporting(true);
+    try {
+      const res = await dashboardService.getPurchaseQuantityReport({
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        brandId: reportFilterValue(brandId),
+        categoryId: reportFilterValue(categoryId),
+        storeId: reportFilterValue(storeId),
+        productId: reportFilterValue(productId),
+        page: 1,
+        limit: 10000,
+      });
+      return res.items as Record<string, unknown>[];
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const exportColumns = [
+    { header: 'Product Name', accessor: 'productName', width: 30 },
+    { header: 'Brand', accessor: 'brandName', width: 18 },
+    { header: 'Category', accessor: 'categoryName', width: 18 },
+    { header: 'Total Quantity', accessor: 'totalQuantity', width: 14 },
+  ];
+
+  const handleExportExcel = async () => {
+    try {
+      const rows = await fetchAllForExport();
+      const dateTag = startDate && endDate ? `${startDate}_to_${endDate}` : new Date().toISOString().slice(0, 10);
+      exportToExcel(rows, exportColumns, `Purchase_Quantity_Report_${dateTag}`);
+      toast.success('Excel downloaded');
+    } catch {
+      toast.error('Failed to export Excel');
+    }
+  };
+
+  const handleExportPdf = async () => {
+    try {
+      const rows = await fetchAllForExport();
+      const dateTag = startDate && endDate ? `${startDate} to ${endDate}` : new Date().toLocaleDateString('en-IN');
+      exportToPdf(rows, exportColumns, {
+        title: 'Purchase Quantity Report',
+        subtitle: `Period: ${dateTag}  |  Total Products: ${rows.length}`,
+        filename: `Purchase_Quantity_Report_${new Date().toISOString().slice(0, 10)}`,
+        orientation: 'portrait',
+      });
+      toast.success('PDF downloaded');
+    } catch {
+      toast.error('Failed to export PDF');
+    }
+  };
+
   return (
     <div className="space-y-4 pb-6">
       <ReportPageHeader
         title="Purchases Qty"
         description="Total quantities sold by product with filters"
+        action={
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={isExporting} className="gap-1.5">
+              <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportPdf} disabled={isExporting} className="gap-1.5">
+              <FileDown className="h-3.5 w-3.5" /> PDF
+            </Button>
+          </div>
+        }
       />
 
       <ReportResponsiveFilters activeCount={activeCount} onReset={handleReset}>

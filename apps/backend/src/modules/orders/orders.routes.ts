@@ -9,6 +9,7 @@ router.post('/', authenticate, ordersController.createOrder);
 router.get('/:id/pdf', authenticate, ordersController.downloadOrderPdf);
 router.get('/:id', authenticate, ordersController.getOrderById);
 router.put('/:id', authenticate, ordersController.updateOrder);
+router.patch('/:id/discount', authenticate, ordersController.applyDiscount);
 router.delete('/:id', authenticate, ordersController.deleteOrder);
 
 export default router;

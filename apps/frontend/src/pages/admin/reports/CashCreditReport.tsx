@@ -1,17 +1,20 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { TrendingUp, CreditCard, Banknote, DollarSign } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { TrendingUp, CreditCard, Banknote, DollarSign, FileSpreadsheet, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { dashboardService } from '@/services/dashboardService';
-import { formatCurrency } from '@/utils/formatCurrency';
+import { formatCurrency, formatCurrencyForPdf } from '@/utils/formatCurrency';
 import { ReportPageHeader } from '@/components/reports/ReportPageHeader';
 import { ReportResponsiveFilters, countReportFilters } from '@/components/reports/ReportResponsiveFilters';
 import { ReportKpiCard } from '@/components/reports/ReportKpiCard';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
+import { exportToExcel, exportToPdf } from '@/utils/exportUtils';
+import { toast } from 'sonner';
 
 const COLORS = ['#4F46E5', '#10B981'];
 
@@ -34,6 +37,8 @@ export default function CashCreditReport() {
       endDate: filter === 'custom' ? endDate : undefined,
     }),
     enabled: filter !== 'custom' || (!!startDate && !!endDate),
+    refetchInterval: 60000,
+    staleTime: 0,
   });
 
   const handleReset = () => {
@@ -83,11 +88,57 @@ export default function CashCreditReport() {
     </>
   );
 
+  const handleExportExcel = () => {
+    if (!data) return;
+    const rows = [
+      { type: 'Gold', sales: formatCurrency(data.cashSales.amount), orders: data.cashSales.orders, percentage: `${data.cashSales.percentage.toFixed(1)}%` },
+      { type: 'Platinum', sales: formatCurrency(data.creditSales.amount), orders: data.creditSales.orders, percentage: `${data.creditSales.percentage.toFixed(1)}%` },
+      { type: 'Total', sales: formatCurrency(data.totalSales.amount), orders: data.totalSales.orders, percentage: '100%' },
+    ] as unknown as Record<string, unknown>[];
+    exportToExcel(rows, [
+      { header: 'Type', accessor: 'type', width: 14 },
+      { header: 'Sales Amount', accessor: 'sales', width: 18 },
+      { header: 'Orders', accessor: 'orders', width: 12 },
+      { header: 'Percentage', accessor: 'percentage', width: 14 },
+    ], `Gold_Platinum_Sales_${new Date().toISOString().slice(0, 10)}`);
+    toast.success('Excel downloaded');
+  };
+
+  const handleExportPdf = () => {
+    if (!data) return;
+    const rows = [
+      { type: 'Gold', sales: formatCurrencyForPdf(data.cashSales.amount), orders: String(data.cashSales.orders), percentage: `${data.cashSales.percentage.toFixed(1)}%` },
+      { type: 'Platinum', sales: formatCurrencyForPdf(data.creditSales.amount), orders: String(data.creditSales.orders), percentage: `${data.creditSales.percentage.toFixed(1)}%` },
+      { type: 'Total', sales: formatCurrencyForPdf(data.totalSales.amount), orders: String(data.totalSales.orders), percentage: '100%' },
+    ] as unknown as Record<string, unknown>[];
+    exportToPdf(rows, [
+      { header: 'Type', accessor: 'type', width: 14 },
+      { header: 'Sales Amount', accessor: 'sales', width: 18 },
+      { header: 'Orders', accessor: 'orders', width: 12 },
+      { header: 'Percentage', accessor: 'percentage', width: 14 },
+    ], {
+      title: 'Gold & Platinum Sales Report',
+      subtitle: filter === 'custom' ? `${startDate} to ${endDate}` : filter === 'month' ? 'This Month' : 'Today',
+      filename: `Gold_Platinum_Sales_${new Date().toISOString().slice(0, 10)}`,
+    });
+    toast.success('PDF downloaded');
+  };
+
   return (
     <div className="space-y-4 pb-6">
       <ReportPageHeader
         title="Gold and Platinum"
         description="Gold sales, platinum sales, and overall totals"
+        action={
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={!data} className="gap-1.5">
+              <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportPdf} disabled={!data} className="gap-1.5">
+              <FileDown className="h-3.5 w-3.5" /> PDF
+            </Button>
+          </div>
+        }
       />
 
       <ReportResponsiveFilters activeCount={activeCount} onReset={handleReset}>
