@@ -153,6 +153,7 @@ export interface AppUser {
   username: string;
   role: Role;
   operatorType?: OperatorType | null;
+  permissions: string[];
   isActive: boolean;
   createdAt: string;
 }

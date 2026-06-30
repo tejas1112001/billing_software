@@ -6,6 +6,7 @@ import { AppLayout } from '@/layouts/AppLayout';
 import { AuthLayout } from '@/layouts/AuthLayout';
 import { ProtectedRoute } from '@/components/routing/ProtectedRoute';
 import { AdminRoute } from '@/components/routing/AdminRoute';
+import { PermissionRoute } from '@/components/routing/PermissionRoute';
 import { Skeleton } from '@/components/ui/skeleton';
 
 // Auth
@@ -68,13 +69,27 @@ export default function App() {
             {/* Protected */}
             <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>
+                {/* Dashboard — always accessible to authenticated users */}
                 <Route path="/" element={<HomePage />} />
-                <Route path="/bills" element={<GenerateBillPage />} />
-                <Route path="/bills/new-arrivals" element={<NewArrivalsPage />} />
-                <Route path="/bills/generated" element={<GeneratedBillsPage />} />
-                <Route path="/receipts" element={<GenerateReceiptPage />} />
-                <Route path="/receipts/generated" element={<GeneratedReceiptsPage />} />
-                <Route path="/ledger" element={<LedgerPage />} />
+
+                {/* Billing — requires BILLING permission */}
+                <Route element={<PermissionRoute permission="BILLING" />}>
+                  <Route path="/bills" element={<GenerateBillPage />} />
+                  <Route path="/bills/new-arrivals" element={<NewArrivalsPage />} />
+                  <Route path="/bills/generated" element={<GeneratedBillsPage />} />
+                </Route>
+
+                {/* Receipts — requires RECEIPTS permission */}
+                <Route element={<PermissionRoute permission="RECEIPTS" />}>
+                  <Route path="/receipts" element={<GenerateReceiptPage />} />
+                  <Route path="/receipts/generated" element={<GeneratedReceiptsPage />} />
+                </Route>
+
+                {/* Ledger — requires LEDGER permission */}
+                <Route element={<PermissionRoute permission="LEDGER" />}>
+                  <Route path="/ledger" element={<LedgerPage />} />
+                </Route>
+
                 <Route path="/stock-reports" element={<StockReportPage />} />
 
                 {/* Admin-only */}

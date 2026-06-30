@@ -3,17 +3,21 @@ import { z } from 'zod';
 import * as service from './users.service';
 import { Role, OperatorType } from '@prisma/client';
 
+const VALID_PERMISSIONS = ['DASHBOARD', 'BILLING', 'RECEIPTS', 'LEDGER'] as const;
+
 const createSchema = z.object({
   username: z.string().min(3).max(50),
   password: z.string().min(6),
   role: z.enum(['ADMIN', 'OPERATOR']),
   operatorType: z.enum(['CASH', 'CREDIT']).optional(),
+  permissions: z.array(z.enum(VALID_PERMISSIONS)).optional(),
 });
 
 const updateSchema = z.object({
   username: z.string().min(3).max(50).optional(),
   role: z.enum(['ADMIN', 'OPERATOR']).optional(),
   operatorType: z.enum(['CASH', 'CREDIT']).nullable().optional(),
+  permissions: z.array(z.enum(VALID_PERMISSIONS)).optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -34,9 +38,16 @@ export async function create(req: Request, res: Response, next: NextFunction) {
       res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
       return;
     }
-    const { username, password, role, operatorType } = parsed.data;
+    const { username, password, role, operatorType, permissions } = parsed.data;
     res.status(201).json(
-      await service.createUser(req.user!.id, username, password, role as Role, operatorType as OperatorType | undefined)
+      await service.createUser(
+        req.user!.id,
+        username,
+        password,
+        role as Role,
+        operatorType as OperatorType | undefined,
+        permissions as string[] | undefined
+      )
     );
   } catch (e) { next(e); }
 }

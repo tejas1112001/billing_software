@@ -196,7 +196,7 @@ export default function NewArrivalsPage() {
     if (user?.role === 'ADMIN') {
       setPriceModalOpen(true);
     } else {
-      orderMutation.mutate();
+      orderMutation.mutate(undefined);
     }
   };
 

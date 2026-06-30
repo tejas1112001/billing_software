@@ -27,7 +27,7 @@ export async function login(username: string, password: string) {
   return {
     accessToken,
     refreshToken: rawRefreshToken,
-    user: { id: user.id, username: user.username, role: user.role, operatorType: user.operatorType },
+    user: { id: user.id, username: user.username, role: user.role, operatorType: user.operatorType, permissions: user.permissions },
   };
 }
 

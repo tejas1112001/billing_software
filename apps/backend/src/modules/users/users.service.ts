@@ -28,6 +28,7 @@ export async function listUsers(query: Request['query']) {
         username: true,
         role: true,
         operatorType: true,
+        permissions: true,
         isActive: true,
         createdAt: true,
       },
@@ -43,7 +44,8 @@ export async function createUser(
   username: string,
   password: string,
   role: Role,
-  operatorType?: OperatorType
+  operatorType?: OperatorType,
+  permissions?: string[]
 ) {
   const existing = await prisma.user.findUnique({ where: { username } });
   if (existing) throw new AppError(409, `Username "${username}" is already taken`);
@@ -56,6 +58,7 @@ export async function createUser(
       passwordHash,
       role,
       operatorType: role === 'OPERATOR' ? operatorType : null,
+      permissions: role === 'OPERATOR' ? (permissions ?? []) : [],
       isActive: true,
     },
     select: {
@@ -63,6 +66,7 @@ export async function createUser(
       username: true,
       role: true,
       operatorType: true,
+      permissions: true,
       isActive: true,
       createdAt: true,
     },
@@ -75,7 +79,14 @@ export async function createUser(
 export async function updateUser(
   adminId: string,
   userId: string,
-  data: { username?: string; password?: string; role?: Role; operatorType?: OperatorType | null; isActive?: boolean }
+  data: {
+    username?: string;
+    password?: string;
+    role?: Role;
+    operatorType?: OperatorType | null;
+    permissions?: string[];
+    isActive?: boolean;
+  }
 ) {
   const existing = await prisma.user.findUnique({ where: { id: userId } });
   if (!existing) throw new AppError(404, 'User not found');
@@ -95,10 +106,12 @@ export async function updateUser(
   if (data.password) updateData.passwordHash = await bcrypt.hash(data.password, 12);
   if (data.role !== undefined) {
     updateData.role = data.role;
-    // Clear operatorType if switching to ADMIN
+    // Clear operatorType and permissions if switching to ADMIN
     updateData.operatorType = data.role === 'ADMIN' ? null : (data.operatorType ?? existing.operatorType);
-  } else if (data.operatorType !== undefined) {
-    updateData.operatorType = data.operatorType;
+    updateData.permissions = data.role === 'ADMIN' ? [] : (data.permissions ?? existing.permissions);
+  } else {
+    if (data.operatorType !== undefined) updateData.operatorType = data.operatorType;
+    if (data.permissions !== undefined) updateData.permissions = data.permissions;
   }
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
 
@@ -110,6 +123,7 @@ export async function updateUser(
       username: true,
       role: true,
       operatorType: true,
+      permissions: true,
       isActive: true,
       createdAt: true,
     },

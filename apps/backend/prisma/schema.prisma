@@ -53,6 +53,7 @@ model User {
   passwordHash  String
   role          Role          @default(OPERATOR)
   operatorType  OperatorType?
+  permissions   String[]      @default([])
   isActive      Boolean       @default(true)
   refreshToken  String?
   createdAt     DateTime      @default(now())

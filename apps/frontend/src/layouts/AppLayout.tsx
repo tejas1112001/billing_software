@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, Receipt, BookOpen, BarChart3,
-  Settings, Menu, X, LogOut, User, Zap, ChevronDown, FileBarChart, Sparkles,
+  Settings, Menu, X, LogOut, User, Zap, ChevronDown, FileBarChart,
   type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { authService } from '@/services/authService';
 import { getOperatorTypeDisplay } from '@/utils/operatorTypeDisplay';
 import { UserMenu } from '@/components/common/UserMenu';
+import { usePermissions } from '@/hooks/usePermissions';
 import { cn } from '@/lib/utils';
 
 type NavChild = { to: string; label: string; end?: boolean };
@@ -22,6 +23,7 @@ type NavItem = {
   to?: string;
   end?: boolean;
   children?: NavChild[];
+  permission?: string; // required permission key; absent = always visible
 };
 
 const billingChildren: NavChild[] = [
@@ -36,10 +38,10 @@ const receiptChildren: NavChild[] = [
 ];
 
 const operatorNav: NavItem[] = [
-  { id: 'dashboard', to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
-  { id: 'billing', icon: FileText, label: 'Billing', children: billingChildren },
-  { id: 'receipts', icon: Receipt, label: 'Receipts', children: receiptChildren },
-  { id: 'ledger', to: '/ledger', icon: BookOpen, label: 'Ledger' },
+  { id: 'dashboard', to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true, permission: 'DASHBOARD' },
+  { id: 'billing', icon: FileText, label: 'Billing', children: billingChildren, permission: 'BILLING' },
+  { id: 'receipts', icon: Receipt, label: 'Receipts', children: receiptChildren, permission: 'RECEIPTS' },
+  { id: 'ledger', to: '/ledger', icon: BookOpen, label: 'Ledger', permission: 'LEDGER' },
 ];
 
 const adminNav: NavItem[] = [
@@ -79,6 +81,7 @@ export function AppLayout() {
   const { user, clearAuth } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+  const { hasPermission } = usePermissions();
 
   useEffect(() => {
     setOpenSections((prev) => ({
@@ -99,7 +102,12 @@ export function AppLayout() {
     navigate('/login');
   };
 
-  const navItems = user?.role === 'ADMIN' ? adminNav : operatorNav;
+  // For operators: filter nav items to only those with granted permissions.
+  // For admins: show all items unchanged.
+  const rawNavItems = user?.role === 'ADMIN' ? adminNav : operatorNav;
+  const navItems = user?.role === 'ADMIN'
+    ? rawNavItems
+    : rawNavItems.filter((item) => !item.permission || hasPermission(item.permission));
 
   const toggleSection = (id: string) => {
     setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));

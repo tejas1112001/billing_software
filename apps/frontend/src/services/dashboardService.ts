@@ -40,5 +40,5 @@ export const dashboardService = {
     api.get('/dashboard/product-report', { params }).then((r) => r.data),
 
   getProductStockHistory: (productId: string) =>
-    api.get(`/dashboard/product-report/${productId}/history`).then((r) => r.data),
+    api.get(`/dashboard/product-report/${productId}/history`).then((r) => r.data.history),
 };

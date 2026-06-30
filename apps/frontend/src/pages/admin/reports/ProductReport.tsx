@@ -442,7 +442,7 @@ export default function ProductReport() {
       </Card>
 
       <StockHistoryDialog
-        productId={historyProduct?.id ?? null}
+        productId={historyProduct?.id ?? ''}
         productName={historyProduct?.name ?? ''}
         open={!!historyProduct}
         onClose={() => setHistoryProduct(null)}

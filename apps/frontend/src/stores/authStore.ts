@@ -7,6 +7,7 @@ interface AuthUser {
   username: string;
   role: Role;
   operatorType?: OperatorType | null;
+  permissions: string[];
 }
 
 interface AuthState {

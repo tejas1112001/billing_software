@@ -10,6 +10,7 @@ export const userService = {
     password: string;
     role: Role;
     operatorType?: OperatorType;
+    permissions?: string[];
   }): Promise<AppUser> =>
     api.post('/users', data).then((r) => r.data),
 
@@ -17,6 +18,7 @@ export const userService = {
     username?: string;
     role?: Role;
     operatorType?: OperatorType | null;
+    permissions?: string[];
     isActive?: boolean;
   }): Promise<AppUser> =>
     api.put(`/users/${id}`, data).then((r) => r.data),
