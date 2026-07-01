@@ -8,11 +8,12 @@ ALTER TABLE "Product" ADD COLUMN "purchasePrice" DECIMAL(12,2);
 ALTER TABLE "Product" ADD COLUMN "isNewArrival" BOOLEAN NOT NULL DEFAULT false;
 
 -- Step 2: Migrate existing NLC values to new price fields
-UPDATE "Product" 
-SET 
-  "cashPrice" = "nlc",
-  "creditPrice" = "nlc"
-WHERE "cashPrice" IS NULL OR "creditPrice" IS NULL;
+-- UPDATE "Product" 
+-- SET 
+--   "cashPrice" = "nlc",
+--   "creditPrice" = "nlc"
+-- WHERE "cashPrice" IS NULL OR "creditPrice" IS NULL;
+
 
 -- Step 3: Set NOT NULL constraints on required fields
 ALTER TABLE "Product" ALTER COLUMN "cashPrice" SET NOT NULL;

@@ -470,7 +470,7 @@ export default function GeneratedBillsPage() {
                   </span>
                 </div>
               )}
-              <div className="grid grid-cols-4 gap-2 pt-1.5">
+              <div className={`grid gap-2 pt-1.5 ${isAdmin ? 'grid-cols-5' : 'grid-cols-4'}`}>
                 <Button size="sm" variant="outline" className="h-9 w-full flex items-center justify-center p-0 shadow-sm" onClick={() => openView(order)} title="View bill">
                   <Eye className="h-4 w-4 text-muted-foreground" />
                 </Button>
@@ -480,6 +480,17 @@ export default function GeneratedBillsPage() {
                 <Button size="sm" variant="outline" className="h-9 w-full flex items-center justify-center p-0 shadow-sm" onClick={() => handleDownload(order)} title="Download PDF">
                   <Download className="h-4 w-4 text-muted-foreground" />
                 </Button>
+                {isAdmin && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className={`h-9 w-full flex items-center justify-center p-0 shadow-sm ${order.discountType && Number(order.discountValue) > 0 ? 'text-amber-600 hover:bg-amber-50' : 'text-indigo-600 hover:bg-indigo-50'}`}
+                    onClick={() => openDiscount(order)}
+                    title="Apply Discount (Admin)"
+                  >
+                    <Tag className="h-4 w-4" />
+                  </Button>
+                )}
                 <Button size="sm" variant="outline" className="h-9 w-full flex items-center justify-center p-0 shadow-sm text-destructive hover:bg-destructive/10" onClick={() => setDeleteId(order.id)} title="Delete bill">
                   <Trash2 className="h-4 w-4" />
                 </Button>

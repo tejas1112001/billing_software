@@ -343,11 +343,11 @@ export default function GenerateBillPage() {
                     key={product.id}
                     className="overflow-hidden flex flex-col border shadow-sm hover:shadow-md hover:translate-y-[-2px] transition-all duration-300 rounded-xl"
                   >
-                    <div className="relative aspect-square bg-muted">
+                    <div className="relative aspect-square bg-muted overflow-hidden">
                       <ProductImageCarousel
                         images={productImages}
                         alt={product.modelName}
-                        className="h-full w-full"
+                        className="absolute inset-0 h-full w-full"
                         imageClassName="rounded-t-xl"
                       />
                       {product.isNewArrival && (

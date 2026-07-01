@@ -267,7 +267,7 @@ model OpeningBalance {
 model UserLog {
   id        String    @id @default(cuid())
   userId    String
-  user      User      @relation(fields: [userId], references: [id])
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   action    LogAction
   meta      Json?
   createdAt DateTime  @default(now())
